@@ -394,7 +394,7 @@ export function GoalsList({ goals }: GoalsListProps) {
       </Card>
 
       {/* Sheet modal for creating/editing goals */}
-      <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
+      <Sheet open={sheetOpen} onOpenChange={setSheetOpen} modal={false}>
         <SheetContent>
           <SheetHeader>
             <SheetTitle>

@@ -6,6 +6,7 @@ import { useTransactionModal } from "@/stores/ui-store";
 import {
   Sheet,
   SheetContent,
+  SheetDescription,
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
@@ -260,7 +261,7 @@ export function TransactionModal({
   }
 
   return (
-    <Sheet open={isOpen} onOpenChange={(open) => !open && close()}>
+    <Sheet open={isOpen} onOpenChange={(open) => !open && close()} modal={false}>
       <SheetContent
         side="bottom"
         className="h-auto max-h-[90vh] overflow-y-auto rounded-t-2xl md:max-w-lg md:mx-auto"
@@ -269,6 +270,11 @@ export function TransactionModal({
           <SheetTitle>
             {type === "expense" ? "Novo gasto" : "Nova receita"}
           </SheetTitle>
+          <SheetDescription className="sr-only">
+            {type === "expense"
+              ? "Formulário para registrar novo gasto"
+              : "Formulário para registrar nova receita"}
+          </SheetDescription>
         </SheetHeader>
 
         <form onSubmit={handleSubmit} className="mt-4 space-y-4">

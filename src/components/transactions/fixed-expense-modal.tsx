@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   Sheet,
   SheetContent,
+  SheetDescription,
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
@@ -109,13 +110,16 @@ export function FixedExpenseModal({
   }
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
+    <Sheet open={open} onOpenChange={onOpenChange} modal={false}>
       <SheetContent
         side="bottom"
         className="h-auto max-h-[85vh] rounded-t-2xl md:mx-auto md:max-w-lg"
       >
         <SheetHeader>
           <SheetTitle>Nova despesa fixa</SheetTitle>
+          <SheetDescription className="sr-only">
+            Formulário para cadastrar nova despesa fixa
+          </SheetDescription>
         </SheetHeader>
 
         <div className="mt-4 flex flex-wrap gap-2">
