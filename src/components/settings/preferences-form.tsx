@@ -15,7 +15,8 @@ import {
 } from "@/components/ui/select";
 import { updatePreferences } from "@/actions/settings-actions";
 import { toast } from "sonner";
-import { Loader2, Palette, Calendar } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Loader2, Palette, Calendar, Wallet } from "lucide-react";
 
 interface PreferencesFormProps {
   settings: {
@@ -35,7 +36,11 @@ export function PreferencesForm({ settings }: PreferencesFormProps) {
     String(settings?.monthStartDay || 1)
   );
   const [locale, setLocale] = useState(settings?.locale || "pt-BR");
+  const [initialBalance, setInitialBalance] = useState(
+    String(settings?.initialBalance ?? 0)
+  );
   const [loading, setLoading] = useState(false);
+  const [balanceLoading, setBalanceLoading] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -56,6 +61,27 @@ export function PreferencesForm({ settings }: PreferencesFormProps) {
       toast.error("Erro ao salvar preferências");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleBalanceSubmit(e: React.FormEvent) {
+    e.preventDefault();
+
+    setBalanceLoading(true);
+    try {
+      const result = await updatePreferences({
+        initialBalance: parseFloat(initialBalance) || 0,
+      });
+      if (result.error) {
+        toast.error(result.error);
+      } else {
+        toast.success("Saldo atualizado");
+        router.refresh();
+      }
+    } catch {
+      toast.error("Erro ao atualizar saldo");
+    } finally {
+      setBalanceLoading(false);
     }
   }
 
@@ -160,6 +186,44 @@ export function PreferencesForm({ settings }: PreferencesFormProps) {
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               )}
               Salvar preferências
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+
+      {/* Initial Balance */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <Wallet className="h-5 w-5 text-muted-foreground" />
+            <div>
+              <CardTitle>Saldo atual</CardTitle>
+              <CardDescription>
+                Informe o saldo atual da sua conta.
+              </CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleBalanceSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label>Saldo (R$)</Label>
+              <Input
+                type="number"
+                step="0.01"
+                value={initialBalance}
+                onChange={(e) => setInitialBalance(e.target.value)}
+                placeholder="0,00"
+              />
+              <p className="text-xs text-muted-foreground">
+                Esse valor é usado como base para projeções e análises.
+              </p>
+            </div>
+            <Button type="submit" disabled={balanceLoading}>
+              {balanceLoading && (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              )}
+              Atualizar saldo
             </Button>
           </form>
         </CardContent>

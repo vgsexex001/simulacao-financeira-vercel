@@ -130,6 +130,7 @@ export async function updatePreferences(data: {
   locale?: string;
   monthStartDay?: number;
   currency?: string;
+  initialBalance?: number;
 }): Promise<{ success: boolean; error?: string }> {
   const user = await requireAuth();
 
@@ -141,6 +142,9 @@ export async function updatePreferences(data: {
         monthStartDay: data.monthStartDay,
       }),
       ...(data.currency !== undefined && { currency: data.currency }),
+      ...(data.initialBalance !== undefined && {
+        initialBalance: data.initialBalance,
+      }),
     },
   });
 
