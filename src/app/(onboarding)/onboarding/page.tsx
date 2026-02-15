@@ -46,8 +46,7 @@ export default function OnboardingPage() {
       });
       if (result.success) {
         toast.success("Configuração concluída!");
-        router.push("/dashboard");
-        router.refresh();
+        window.location.href = "/dashboard";
       }
     } catch {
       toast.error("Erro ao salvar configurações");
