@@ -110,7 +110,7 @@ export function FixedExpenseModal({
   }
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange} modal={false}>
+    <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="bottom"
         className="h-auto max-h-[85vh] rounded-t-2xl md:mx-auto md:max-w-lg"

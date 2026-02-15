@@ -261,7 +261,7 @@ export function TransactionModal({
   }
 
   return (
-    <Sheet open={isOpen} onOpenChange={(open) => !open && close()} modal={false}>
+    <Sheet open={isOpen} onOpenChange={(open) => !open && close()}>
       <SheetContent
         side="bottom"
         className="h-auto max-h-[90vh] overflow-y-auto rounded-t-2xl md:max-w-lg md:mx-auto"
