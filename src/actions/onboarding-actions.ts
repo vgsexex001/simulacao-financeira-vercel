@@ -32,9 +32,14 @@ export async function completeOnboarding(data: OnboardingData) {
     data: { name: data.name, onboarded: true },
   });
 
-  // Create user settings
-  await prisma.userSettings.create({
-    data: {
+  // Create or update user settings (upsert to avoid duplicate)
+  await prisma.userSettings.upsert({
+    where: { userId: user.id },
+    update: {
+      initialBalance: data.initialBalance,
+      jarRulesJson: data.jarRules,
+    },
+    create: {
       userId: user.id,
       initialBalance: data.initialBalance,
       jarRulesJson: data.jarRules,
