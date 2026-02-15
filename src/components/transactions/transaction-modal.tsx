@@ -14,13 +14,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+
+
 import { createExpense, createIncome } from "@/actions/transaction-actions";
 import { suggestCategory } from "@/actions/analytics-actions";
 import { toast } from "sonner";
@@ -329,34 +324,30 @@ export function TransactionModal({
           {type === "expense" ? (
             <div className="space-y-2">
               <Label>Categoria</Label>
-              <Select value={categoryId} onValueChange={(v) => { setCategoryId(v); setAutoSuggested(false); }}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione" />
-                </SelectTrigger>
-                <SelectContent>
-                  {categories.map((cat) => (
-                    <SelectItem key={cat.id} value={cat.id}>
-                      {cat.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <select
+                value={categoryId}
+                onChange={(e) => { setCategoryId(e.target.value); setAutoSuggested(false); }}
+                className="border-input bg-background text-foreground flex h-9 w-full rounded-md border px-3 py-2 text-sm shadow-xs focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] outline-none"
+              >
+                <option value="" disabled>Selecione</option>
+                {categories.map((cat) => (
+                  <option key={cat.id} value={cat.id}>{cat.name}</option>
+                ))}
+              </select>
             </div>
           ) : (
             <div className="space-y-2">
               <Label>Fonte</Label>
-              <Select value={sourceId} onValueChange={setSourceId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione" />
-                </SelectTrigger>
-                <SelectContent>
-                  {sources.map((src) => (
-                    <SelectItem key={src.id} value={src.id}>
-                      {src.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <select
+                value={sourceId}
+                onChange={(e) => setSourceId(e.target.value)}
+                className="border-input bg-background text-foreground flex h-9 w-full rounded-md border px-3 py-2 text-sm shadow-xs focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] outline-none"
+              >
+                <option value="" disabled>Selecione</option>
+                {sources.map((src) => (
+                  <option key={src.id} value={src.id}>{src.name}</option>
+                ))}
+              </select>
             </div>
           )}
 
@@ -411,19 +402,19 @@ export function TransactionModal({
           {type === "expense" && (
             <div className="space-y-2">
               <Label>Jarro (opcional)</Label>
-              <Select value={jarType} onValueChange={setJarType}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Auto" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="necessities">Necessidades</SelectItem>
-                  <SelectItem value="education">Educação</SelectItem>
-                  <SelectItem value="savings">Poupança</SelectItem>
-                  <SelectItem value="play">Diversão</SelectItem>
-                  <SelectItem value="investment">Investimentos</SelectItem>
-                  <SelectItem value="giving">Doações</SelectItem>
-                </SelectContent>
-              </Select>
+              <select
+                value={jarType}
+                onChange={(e) => setJarType(e.target.value)}
+                className="border-input bg-background text-foreground flex h-9 w-full rounded-md border px-3 py-2 text-sm shadow-xs focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] outline-none"
+              >
+                <option value="">Auto</option>
+                <option value="necessities">Necessidades</option>
+                <option value="education">Educação</option>
+                <option value="savings">Poupança</option>
+                <option value="play">Diversão</option>
+                <option value="investment">Investimentos</option>
+                <option value="giving">Doações</option>
+              </select>
             </div>
           )}
 
@@ -448,22 +439,17 @@ export function TransactionModal({
               {type === "expense" && paymentMethod === "credit" && (
                 <div className="space-y-2">
                   <Label>Parcelas</Label>
-                  <Select
+                  <select
                     value={installmentTotal}
-                    onValueChange={setInstallmentTotal}
+                    onChange={(e) => setInstallmentTotal(e.target.value)}
+                    className="border-input bg-background text-foreground flex h-9 w-full rounded-md border px-3 py-2 text-sm shadow-xs focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] outline-none"
                   >
-                    <SelectTrigger>
-                      <SelectValue placeholder="À vista" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="1">À vista</SelectItem>
-                      {[2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((n) => (
-                        <SelectItem key={n} value={String(n)}>
-                          {n}x
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    <option value="">À vista</option>
+                    <option value="1">À vista</option>
+                    {[2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((n) => (
+                      <option key={n} value={String(n)}>{n}x</option>
+                    ))}
+                  </select>
                 </div>
               )}
 
