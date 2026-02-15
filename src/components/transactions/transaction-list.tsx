@@ -27,6 +27,7 @@ interface TransactionItem {
   categoryName?: string;
   categoryColor?: string | null;
   sourceName?: string;
+  isFixed?: boolean;
 }
 
 interface TransactionListProps {
@@ -42,12 +43,18 @@ export function TransactionList({
 }: TransactionListProps) {
   const router = useRouter();
   const [search, setSearch] = useState("");
-  const [filter, setFilter] = useState<"all" | "expense" | "income">("all");
+  const [filter, setFilter] = useState<
+    "all" | "variable" | "fixed" | "income"
+  >("all");
   const openModal = useTransactionModal((s) => s.open);
 
   const all: TransactionItem[] = [...expenses, ...incomes]
     .filter((t) => {
-      if (filter !== "all" && t.type !== filter) return false;
+      if (filter === "income" && t.type !== "income") return false;
+      if (filter === "variable" && (t.type !== "expense" || t.isFixed))
+        return false;
+      if (filter === "fixed" && (t.type !== "expense" || !t.isFixed))
+        return false;
       if (search && !t.description.toLowerCase().includes(search.toLowerCase()))
         return false;
       return true;
@@ -97,14 +104,21 @@ export function TransactionList({
             />
           </div>
           <div className="flex gap-1">
-            {(["all", "expense", "income"] as const).map((f) => (
+            {(
+              [
+                ["all", "Todas"],
+                ["variable", "Variáveis"],
+                ["fixed", "Fixas"],
+                ["income", "Receitas"],
+              ] as const
+            ).map(([key, label]) => (
               <Button
-                key={f}
-                variant={filter === f ? "default" : "outline"}
+                key={key}
+                variant={filter === key ? "default" : "outline"}
                 size="sm"
-                onClick={() => setFilter(f)}
+                onClick={() => setFilter(key as typeof filter)}
               >
-                {f === "all" ? "Todas" : f === "expense" ? "Gastos" : "Receitas"}
+                {label}
               </Button>
             ))}
           </div>
@@ -141,8 +155,16 @@ export function TransactionList({
                           }}
                         />
                         <div>
-                          <div className="text-sm font-medium">
+                          <div className="flex items-center gap-1.5 text-sm font-medium">
                             {item.description}
+                            {item.isFixed && (
+                              <Badge
+                                variant="outline"
+                                className="px-1.5 py-0 text-[10px] font-normal text-muted-foreground"
+                              >
+                                Fixa
+                              </Badge>
+                            )}
                           </div>
                           <div className="text-xs text-muted-foreground">
                             {item.type === "expense"

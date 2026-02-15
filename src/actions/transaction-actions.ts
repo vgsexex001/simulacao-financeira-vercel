@@ -268,6 +268,7 @@ export async function getTransactions(params: {
       categoryName: e.category.name,
       categoryColor: e.category.color,
       categoryIcon: e.category.icon,
+      isFixed: e.isFixed,
       jarType: e.jarType,
       paymentMethod: e.paymentMethod,
       installmentCurrent: e.installmentCurrent,

@@ -87,6 +87,58 @@ export async function importTransactions(data: {
     }
   }
 
+  // Auto-create FixedExpenseTemplates from imported fixed expenses
+  const fixedExpenses = transactions.filter((t) => t.type === "expense" && t.isFixed);
+  if (fixedExpenses.length > 0) {
+    const existingTemplates = await prisma.fixedExpenseTemplate.findMany({
+      where: { userId: user.id },
+      select: { name: true, categoryId: true },
+    });
+    const existingTemplateKeys = new Set(
+      existingTemplates.map((t) => `${t.name.toLowerCase()}::${t.categoryId}`)
+    );
+
+    // Deduplicate by name+category, keeping the most recent month's amount
+    const templateMap = new Map<
+      string,
+      { name: string; amount: number; dueDay: number; categoryId: string }
+    >();
+
+    for (const tx of fixedExpenses) {
+      const matchedCategory = tx.category
+        ? categories.find(
+            (c) => c.name.toLowerCase() === tx.category!.toLowerCase()
+          )
+        : null;
+      const categoryId = matchedCategory?.id ?? categories[0].id;
+      const key = `${tx.description.toLowerCase()}::${categoryId}`;
+
+      if (existingTemplateKeys.has(key)) continue;
+
+      const dueDay = parseInt(tx.date.split("-")[2]) || 1;
+      const amount = Math.round(tx.amount * 100) / 100;
+
+      templateMap.set(key, {
+        name: tx.description,
+        amount,
+        dueDay: Math.min(Math.max(dueDay, 1), 28),
+        categoryId,
+      });
+    }
+
+    for (const template of templateMap.values()) {
+      await prisma.fixedExpenseTemplate.create({
+        data: {
+          userId: user.id,
+          name: template.name,
+          amount: template.amount,
+          dueDay: template.dueDay,
+          categoryId: template.categoryId,
+        },
+      });
+    }
+  }
+
   let imported = 0;
   let failed = 0;
 
@@ -147,6 +199,7 @@ export async function importTransactions(data: {
 
   revalidatePath("/transactions");
   revalidatePath("/dashboard");
+  revalidatePath("/fixed-expenses");
 
   return { success: true, imported, failed };
 }
