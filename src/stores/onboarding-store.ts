@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { persist } from "zustand/middleware";
 
 interface IncomeSourceInput {
   name: string;
@@ -55,13 +56,14 @@ interface OnboardingState {
   setGoals: (goals: GoalInput[]) => void;
   nextStep: () => void;
   prevStep: () => void;
+  clearStore: () => void;
 }
 
-export const useOnboarding = create<OnboardingState>((set) => ({
+const initialState = {
   step: 1,
   name: "",
-  incomeSources: [{ name: "Salário", amount: 0 }],
-  fixedExpenses: [],
+  incomeSources: [{ name: "Salário", amount: 0 }] as IncomeSourceInput[],
+  fixedExpenses: [] as FixedExpenseInput[],
   categories: [
     { name: "Alimentação", icon: "UtensilsCrossed", color: "#f59e0b" },
     { name: "Transporte", icon: "Car", color: "#3b82f6" },
@@ -73,7 +75,7 @@ export const useOnboarding = create<OnboardingState>((set) => ({
     { name: "Assinaturas", icon: "CreditCard", color: "#6366f1" },
     { name: "Pets", icon: "Dog", color: "#84cc16" },
     { name: "Outros", icon: "MoreHorizontal", color: "#64748b" },
-  ],
+  ] as CategoryInput[],
   initialBalance: 0,
   jarRules: {
     necessities: 55,
@@ -82,17 +84,39 @@ export const useOnboarding = create<OnboardingState>((set) => ({
     play: 10,
     investment: 10,
     giving: 5,
-  },
-  goals: [],
+  } as JarRules,
+  goals: [] as GoalInput[],
+};
 
-  setStep: (step) => set({ step }),
-  setName: (name) => set({ name }),
-  setIncomeSources: (incomeSources) => set({ incomeSources }),
-  setFixedExpenses: (fixedExpenses) => set({ fixedExpenses }),
-  setCategories: (categories) => set({ categories }),
-  setInitialBalance: (initialBalance) => set({ initialBalance }),
-  setJarRules: (jarRules) => set({ jarRules }),
-  setGoals: (goals) => set({ goals }),
-  nextStep: () => set((s) => ({ step: Math.min(s.step + 1, 6) })),
-  prevStep: () => set((s) => ({ step: Math.max(s.step - 1, 1) })),
-}));
+export const useOnboarding = create<OnboardingState>()(
+  persist(
+    (set) => ({
+      ...initialState,
+
+      setStep: (step) => set({ step }),
+      setName: (name) => set({ name }),
+      setIncomeSources: (incomeSources) => set({ incomeSources }),
+      setFixedExpenses: (fixedExpenses) => set({ fixedExpenses }),
+      setCategories: (categories) => set({ categories }),
+      setInitialBalance: (initialBalance) => set({ initialBalance }),
+      setJarRules: (jarRules) => set({ jarRules }),
+      setGoals: (goals) => set({ goals }),
+      nextStep: () => set((s) => ({ step: Math.min(s.step + 1, 6) })),
+      prevStep: () => set((s) => ({ step: Math.max(s.step - 1, 1) })),
+      clearStore: () => set(initialState),
+    }),
+    {
+      name: "finpulse-onboarding",
+      partialize: (state) => ({
+        step: state.step,
+        name: state.name,
+        incomeSources: state.incomeSources,
+        fixedExpenses: state.fixedExpenses,
+        categories: state.categories,
+        initialBalance: state.initialBalance,
+        jarRules: state.jarRules,
+        goals: state.goals,
+      }),
+    }
+  )
+);

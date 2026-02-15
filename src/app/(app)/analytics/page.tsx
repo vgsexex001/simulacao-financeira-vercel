@@ -70,6 +70,7 @@ export default async function AnalyticsPage() {
             initialBalance={projectionData.initialBalance}
             fixedExpensesFromDB={projectionData.fixedExpensesFromDB}
             fixedTemplates={projectionData.fixedTemplates}
+            averageIncome={projectionData.averageIncome}
           />
         </TabsContent>
 

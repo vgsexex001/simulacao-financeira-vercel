@@ -32,22 +32,13 @@ import {
   Target,
 } from "lucide-react";
 
-// ---- Original simulator constants ----
-const FIXED_EXPENSES = 1184.9;
-
-const SCENARIOS = [
-  { label: "Só Cataliad", income: 1333, color: "#ef4444" },
-  { label: "Cataliad + Bico", income: 2033, color: "#f59e0b" },
-  { label: "Ponto de equilíbrio", income: 2309, color: "#3b82f6" },
-  { label: "Confortável", income: 3000, color: "#10b981" },
-] as const;
-
 const PROJECTION_MONTHS = 10;
 
 interface ProjectionsProps {
   initialBalance: number;
   fixedExpensesFromDB: number;
   fixedTemplates: { id: string; name: string; amount: number }[];
+  averageIncome: number;
 }
 
 interface MonthProjection {
@@ -65,12 +56,24 @@ export function Projections({
   initialBalance,
   fixedExpensesFromDB,
   fixedTemplates,
+  averageIncome,
 }: ProjectionsProps) {
-  const [income, setIncome] = useState(1333);
-  const [variableExpenses, setVariableExpenses] = useState(300);
+  const fixedExpenses = fixedExpensesFromDB;
 
-  // Use FIXED_EXPENSES constant (original app logic)
-  const fixedExpenses = FIXED_EXPENSES;
+  // Build dynamic scenarios based on the user's real average income
+  const scenarios = useMemo(() => {
+    const base = averageIncome > 0 ? averageIncome : 3000;
+    const breakEven = fixedExpenses + 300; // fixed + estimated variable
+    return [
+      { label: "Renda -20%", income: Math.round(base * 0.8), color: "#ef4444" },
+      { label: "Renda atual", income: Math.round(base), color: "#f59e0b" },
+      { label: "Ponto de equilíbrio", income: Math.round(breakEven), color: "#3b82f6" },
+      { label: "Renda +30%", income: Math.round(base * 1.3), color: "#10b981" },
+    ];
+  }, [averageIncome, fixedExpenses]);
+
+  const [income, setIncome] = useState(averageIncome > 0 ? averageIncome : 3000);
+  const [variableExpenses, setVariableExpenses] = useState(300);
 
   const projection = useMemo(() => {
     const months: MonthProjection[] = [];
@@ -131,13 +134,13 @@ export function Projections({
               <span className="text-xl font-bold text-emerald-500">
                 {formatBRL(income)}
               </span>
-              <span className="text-sm text-muted-foreground">R$ 6.000</span>
+              <span className="text-sm text-muted-foreground">R$ 15.000</span>
             </div>
             <Slider
               value={[income]}
               onValueChange={(v) => setIncome(v[0])}
               min={0}
-              max={6000}
+              max={15000}
               step={50}
             />
 
@@ -147,7 +150,7 @@ export function Projections({
                 Cenários rápidos
               </p>
               <div className="grid grid-cols-2 gap-2">
-                {SCENARIOS.map((scenario) => (
+                {scenarios.map((scenario) => (
                   <Button
                     key={scenario.label}
                     variant={income === scenario.income ? "default" : "outline"}
@@ -186,13 +189,13 @@ export function Projections({
               <span className="text-xl font-bold text-red-500">
                 {formatBRL(variableExpenses)}
               </span>
-              <span className="text-sm text-muted-foreground">R$ 3.000</span>
+              <span className="text-sm text-muted-foreground">R$ 5.000</span>
             </div>
             <Slider
               value={[variableExpenses]}
               onValueChange={(v) => setVariableExpenses(v[0])}
               min={0}
-              max={3000}
+              max={5000}
               step={50}
             />
 
@@ -472,7 +475,7 @@ export function Projections({
             <div className="rounded-lg border p-4">
               <p className="mb-3 font-medium">Comparação de cenários</p>
               <div className="space-y-2">
-                {SCENARIOS.map((scenario) => {
+                {scenarios.map((scenario) => {
                   const scenarioNet =
                     scenario.income - (fixedExpenses + variableExpenses);
                   const scenarioFinal =

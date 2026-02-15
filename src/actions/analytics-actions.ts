@@ -483,18 +483,32 @@ export async function detectAnomalies() {
 export async function getProjectionData() {
   const user = await requireAuth();
 
-  const settings = await prisma.userSettings.findUnique({
-    where: { userId: user.id },
-  });
+  const threeMonthsAgo = new Date();
+  threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
 
-  const fixedTemplates = await prisma.fixedExpenseTemplate.findMany({
-    where: { userId: user.id, isActive: true },
-  });
+  const [settings, fixedTemplates, recentIncomes] = await Promise.all([
+    prisma.userSettings.findUnique({
+      where: { userId: user.id },
+    }),
+    prisma.fixedExpenseTemplate.findMany({
+      where: { userId: user.id, isActive: true },
+    }),
+    prisma.income.findMany({
+      where: { userId: user.id, date: { gte: threeMonthsAgo } },
+    }),
+  ]);
 
   const totalFixed = fixedTemplates.reduce(
     (sum, t) => sum + Number(t.amount),
     0
   );
+
+  const totalRecentIncome = recentIncomes.reduce(
+    (sum, i) => sum + Number(i.amount),
+    0
+  );
+  const monthsCount = recentIncomes.length > 0 ? 3 : 1;
+  const averageIncome = Math.round(totalRecentIncome / monthsCount);
 
   return {
     initialBalance: Number(settings?.initialBalance || 0),
@@ -504,5 +518,6 @@ export async function getProjectionData() {
       name: t.name,
       amount: Number(t.amount),
     })),
+    averageIncome,
   };
 }

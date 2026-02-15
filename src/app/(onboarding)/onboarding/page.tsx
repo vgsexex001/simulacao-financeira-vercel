@@ -45,6 +45,7 @@ export default function OnboardingPage() {
         goals: store.goals,
       });
       if (result.success) {
+        store.clearStore();
         toast.success("Configuração concluída!");
         window.location.href = "/dashboard";
       }
