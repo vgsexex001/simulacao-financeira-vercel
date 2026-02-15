@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { loginSchema, type LoginInput } from "@/lib/validations";
@@ -13,7 +12,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Loader2 } from "lucide-react";
 
 export default function LoginPage() {
-  const router = useRouter();
   const [error, setError] = useState("");
   const {
     register,
@@ -28,9 +26,6 @@ export default function LoginPage() {
     const result = await loginUser(data);
     if (result?.error) {
       setError(result.error);
-    } else {
-      router.push("/dashboard");
-      router.refresh();
     }
   }
 
