@@ -39,12 +39,52 @@ export async function importTransactions(data: {
     }),
   ]);
 
-  if (categories.length === 0 && transactions.some((t) => t.type === "expense")) {
-    return { success: false, error: "Nenhuma categoria cadastrada. Crie pelo menos uma categoria antes de importar despesas." };
+  // Auto-create missing categories from imported data
+  const hasExpenses = transactions.some((t) => t.type === "expense");
+  if (hasExpenses) {
+    const existingNames = new Set(categories.map((c) => c.name.toLowerCase()));
+    const neededNames = new Set(
+      transactions
+        .filter((t) => t.type === "expense" && t.category)
+        .map((t) => t.category!.trim())
+        .filter((name) => name && !existingNames.has(name.toLowerCase()))
+    );
+
+    // If no categories exist at all, also ensure a fallback "Outros" exists
+    if (categories.length === 0 && neededNames.size === 0) {
+      neededNames.add("Outros");
+    }
+
+    for (const name of neededNames) {
+      const created = await prisma.expenseCategory.create({
+        data: { userId: user.id, name, icon: "MoreHorizontal", color: "#64748b" },
+      });
+      categories.push(created);
+    }
   }
 
-  if (sources.length === 0 && transactions.some((t) => t.type === "income")) {
-    return { success: false, error: "Nenhuma fonte de renda cadastrada. Crie pelo menos uma fonte antes de importar receitas." };
+  // Auto-create missing income sources from imported data
+  const hasIncomes = transactions.some((t) => t.type === "income");
+  if (hasIncomes) {
+    const existingNames = new Set(sources.map((s) => s.name.toLowerCase()));
+    const neededNames = new Set(
+      transactions
+        .filter((t) => t.type === "income" && t.source)
+        .map((t) => t.source!.trim())
+        .filter((name) => name && !existingNames.has(name.toLowerCase()))
+    );
+
+    // If no sources exist at all, ensure a fallback "Outros" exists
+    if (sources.length === 0 && neededNames.size === 0) {
+      neededNames.add("Outros");
+    }
+
+    for (const name of neededNames) {
+      const created = await prisma.incomeSource.create({
+        data: { userId: user.id, name },
+      });
+      sources.push(created);
+    }
   }
 
   let imported = 0;
