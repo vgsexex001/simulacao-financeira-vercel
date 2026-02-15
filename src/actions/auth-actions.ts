@@ -3,6 +3,7 @@
 import { signIn, signOut } from "@/lib/auth";
 import { loginSchema } from "@/lib/validations";
 import { AuthError } from "next-auth";
+import { isRedirectError } from "next/dist/client/components/redirect-error";
 
 export async function loginUser(formData: {
   email: string;
@@ -21,6 +22,9 @@ export async function loginUser(formData: {
     });
     return { success: true };
   } catch (error) {
+    if (isRedirectError(error)) {
+      throw error;
+    }
     if (error instanceof AuthError) {
       return { error: "Email ou senha inválidos" };
     }
