@@ -25,27 +25,13 @@ export const authConfig: NextAuthConfig = {
     authorized({ auth, request: { nextUrl } }) {
       const isLoggedIn = !!auth?.user;
       const { pathname } = nextUrl;
-      const publicRoutes = ["/login"];
 
-      if (publicRoutes.includes(pathname)) {
+      if (pathname === "/login") {
         if (isLoggedIn) return Response.redirect(new URL("/dashboard", nextUrl));
         return true;
       }
 
       if (!isLoggedIn) return false;
-
-      if (pathname.startsWith("/onboarding") && auth?.user && (auth.user as { onboarded?: boolean }).onboarded) {
-        return Response.redirect(new URL("/dashboard", nextUrl));
-      }
-
-      if (
-        !pathname.startsWith("/onboarding") &&
-        auth?.user &&
-        !(auth.user as { onboarded?: boolean }).onboarded &&
-        !pathname.startsWith("/api")
-      ) {
-        return Response.redirect(new URL("/onboarding", nextUrl));
-      }
 
       return true;
     },
