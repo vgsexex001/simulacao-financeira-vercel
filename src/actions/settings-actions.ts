@@ -132,25 +132,31 @@ export async function updatePreferences(data: {
   currency?: string;
   initialBalance?: number;
 }): Promise<{ success: boolean; error?: string }> {
-  const user = await requireAuth();
+  try {
+    const user = await requireAuth();
 
-  await prisma.userSettings.update({
-    where: { userId: user.id },
-    data: {
-      ...(data.locale !== undefined && { locale: data.locale }),
-      ...(data.monthStartDay !== undefined && {
-        monthStartDay: data.monthStartDay,
-      }),
-      ...(data.currency !== undefined && { currency: data.currency }),
-      ...(data.initialBalance !== undefined && {
-        initialBalance: data.initialBalance,
-      }),
-    },
-  });
+    await prisma.userSettings.update({
+      where: { userId: user.id },
+      data: {
+        ...(data.locale !== undefined && { locale: data.locale }),
+        ...(data.monthStartDay !== undefined && {
+          monthStartDay: data.monthStartDay,
+        }),
+        ...(data.currency !== undefined && { currency: data.currency }),
+        ...(data.initialBalance !== undefined && {
+          initialBalance: data.initialBalance,
+        }),
+      },
+    });
 
-  revalidatePath("/settings");
-  revalidatePath("/dashboard");
-  return { success: true };
+    revalidatePath("/settings");
+    revalidatePath("/dashboard");
+    revalidatePath("/analytics");
+    return { success: true };
+  } catch (error) {
+    console.error("updatePreferences error:", error);
+    return { success: false, error: "Erro ao salvar preferências. Tente novamente." };
+  }
 }
 
 export async function createCategory(data: {

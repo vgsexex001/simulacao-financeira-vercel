@@ -67,15 +67,21 @@ export function PreferencesForm({ settings }: PreferencesFormProps) {
   async function handleBalanceSubmit(e: React.FormEvent) {
     e.preventDefault();
 
+    const parsed = parseFloat(initialBalance.replace(",", "."));
+    if (isNaN(parsed)) {
+      toast.error("Valor inválido. Use apenas números.");
+      return;
+    }
+
     setBalanceLoading(true);
     try {
       const result = await updatePreferences({
-        initialBalance: parseFloat(initialBalance) || 0,
+        initialBalance: parsed,
       });
       if (result.error) {
         toast.error(result.error);
       } else {
-        toast.success("Saldo atualizado");
+        toast.success("Saldo atualizado para R$ " + parsed.toLocaleString("pt-BR", { minimumFractionDigits: 2 }));
         router.refresh();
       }
     } catch {
@@ -209,11 +215,11 @@ export function PreferencesForm({ settings }: PreferencesFormProps) {
             <div className="space-y-2">
               <Label>Saldo (R$)</Label>
               <Input
-                type="number"
-                step="0.01"
+                type="text"
+                inputMode="decimal"
                 value={initialBalance}
                 onChange={(e) => setInitialBalance(e.target.value)}
-                placeholder="0,00"
+                placeholder="4506.37"
               />
               <p className="text-xs text-muted-foreground">
                 Esse valor é usado como base para projeções e análises.
