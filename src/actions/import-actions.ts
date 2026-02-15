@@ -45,9 +45,13 @@ export async function importTransactions(data: {
   }
 
   let imported = 0;
+  let failed = 0;
 
   for (const tx of transactions) {
     try {
+      // Round amount to 2 decimal places for Decimal(12,2) compatibility
+      const amount = Math.round(tx.amount * 100) / 100;
+
       if (tx.type === "expense") {
         // Try to match category by name (case insensitive), fall back to first category
         const matchedCategory = tx.category
@@ -60,7 +64,7 @@ export async function importTransactions(data: {
         await prisma.expense.create({
           data: {
             userId: user.id,
-            amount: tx.amount,
+            amount,
             description: tx.description,
             categoryId,
             date: new Date(tx.date),
@@ -80,7 +84,7 @@ export async function importTransactions(data: {
         await prisma.income.create({
           data: {
             userId: user.id,
-            amount: tx.amount,
+            amount,
             description: tx.description,
             sourceId,
             date: new Date(tx.date),
@@ -91,12 +95,12 @@ export async function importTransactions(data: {
       }
     } catch (error) {
       console.error("Erro ao importar transacao:", error);
-      // Continue importing the rest
+      failed++;
     }
   }
 
   revalidatePath("/transactions");
   revalidatePath("/dashboard");
 
-  return { success: true, imported };
+  return { success: true, imported, failed };
 }

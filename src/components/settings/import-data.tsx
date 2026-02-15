@@ -35,11 +35,19 @@ export function ImportData() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const parseRow = useCallback(
-    (row: Record<string, string>): ParsedTransaction | null => {
-      // Normalize keys to lowercase and trim
+    (row: Record<string, unknown>): ParsedTransaction | null => {
+      // Normalize keys to lowercase and coerce all values to strings
+      // (XLSX returns native types: numbers, Dates, booleans)
       const normalized: Record<string, string> = {};
       for (const key of Object.keys(row)) {
-        normalized[key.toLowerCase().trim()] = (row[key] ?? "").trim();
+        const val = row[key];
+        let str: string;
+        if (val instanceof Date) {
+          str = `${val.getFullYear()}-${String(val.getMonth() + 1).padStart(2, "0")}-${String(val.getDate()).padStart(2, "0")}`;
+        } else {
+          str = String(val ?? "").trim();
+        }
+        normalized[key.toLowerCase().trim()] = str;
       }
 
       const tipo = normalized["tipo"] ?? "";
@@ -116,7 +124,7 @@ export function ImportData() {
   const parseCSV = useCallback(
     (fileContent: File): Promise<ParsedTransaction[]> => {
       return new Promise((resolve, reject) => {
-        Papa.parse<Record<string, string>>(fileContent, {
+        Papa.parse<Record<string, unknown>>(fileContent, {
           header: true,
           skipEmptyLines: true,
           encoding: "UTF-8",
@@ -141,11 +149,12 @@ export function ImportData() {
 
   const parseXLSX = useCallback(
     (fileContent: ArrayBuffer): ParsedTransaction[] => {
-      const workbook = XLSX.read(fileContent, { type: "array" });
+      const workbook = XLSX.read(fileContent, { type: "array", cellDates: true });
       const sheetName = workbook.SheetNames[0];
       const sheet = workbook.Sheets[sheetName];
-      const rows = XLSX.utils.sheet_to_json<Record<string, string>>(sheet, {
+      const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, {
         defval: "",
+        raw: false,
       });
 
       const parsed: ParsedTransaction[] = [];
@@ -210,7 +219,15 @@ export function ImportData() {
     try {
       const result = await importTransactions({ transactions });
       if (result.success) {
-        toast.success(`${result.imported} transacoes importadas com sucesso!`);
+        if (result.failed && result.failed > 0) {
+          toast.warning(
+            `${result.imported} importadas, ${result.failed} falharam`
+          );
+        } else {
+          toast.success(
+            `${result.imported} transacoes importadas com sucesso!`
+          );
+        }
         setImported(true);
       } else {
         toast.error(result.error || "Erro ao importar transacoes");
