@@ -11,6 +11,9 @@ interface TransactionInput {
   date: string;
   category?: string;
   source?: string;
+  paymentMethod?: string;
+  jarType?: string;
+  isFixed?: boolean;
 }
 
 export async function importTransactions(data: {
@@ -68,6 +71,9 @@ export async function importTransactions(data: {
             description: tx.description,
             categoryId,
             date: new Date(tx.date),
+            ...(tx.isFixed != null && { isFixed: tx.isFixed }),
+            ...(tx.paymentMethod && { paymentMethod: tx.paymentMethod }),
+            ...(tx.jarType && { jarType: tx.jarType }),
           },
         });
 

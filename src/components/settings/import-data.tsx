@@ -16,6 +16,7 @@ import { toast } from "sonner";
 import { Upload, FileSpreadsheet, Loader2, Check } from "lucide-react";
 import Papa from "papaparse";
 import * as XLSX from "xlsx";
+import { MONTHS_PT } from "@/lib/constants";
 
 interface ParsedTransaction {
   type: "income" | "expense";
@@ -24,6 +25,274 @@ interface ParsedTransaction {
   date: string;
   category?: string;
   source?: string;
+  paymentMethod?: string;
+  jarType?: string;
+  isFixed?: boolean;
+}
+
+// --- Financial dashboard parser (Mente Milionária layout) ---
+
+const JAR_LABEL_MAP: Record<string, string> = {
+  necessidades: "necessities",
+  educacao: "education",
+  poupanca: "savings",
+  diversao: "play",
+  investimentos: "investment",
+  investimento: "investment",
+  doacoes: "giving",
+  doacao: "giving",
+};
+
+const PAYMENT_METHOD_MAP: Record<string, string> = {
+  pix: "pix",
+  debito: "debit",
+  credito: "credit",
+  cartao: "credit",
+  dinheiro: "cash",
+  boleto: "boleto",
+  transferencia: "transfer",
+};
+
+function normalizeText(text: string): string {
+  return text
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+}
+
+function parseAmountBR(raw: unknown): number {
+  if (raw == null) return 0;
+  if (typeof raw === "number") return Math.abs(raw);
+
+  const str = String(raw).trim();
+  if (!str || str === "-" || str === "\u2013") return 0;
+
+  let cleaned = str.replace(/[R$\s]/g, "");
+  const isNegative = cleaned.includes("(") && cleaned.includes(")");
+  cleaned = cleaned.replace(/[()]/g, "");
+  if (!cleaned) return 0;
+
+  // Detect BR vs US format by position of last comma vs last dot
+  const lastComma = cleaned.lastIndexOf(",");
+  const lastDot = cleaned.lastIndexOf(".");
+
+  if (lastComma > lastDot) {
+    // BR format: "1.234,56" → comma is decimal
+    cleaned = cleaned.replace(/\./g, "").replace(",", ".");
+  } else {
+    // US format or plain number: remove commas (thousands)
+    cleaned = cleaned.replace(/,/g, "");
+  }
+
+  const value = parseFloat(cleaned);
+  if (isNaN(value)) return 0;
+  return isNegative ? 0 : Math.abs(value);
+}
+
+function parseDateCell(
+  cell: unknown,
+  year: number,
+  monthIndex: number
+): string | null {
+  if (cell instanceof Date && !isNaN(cell.getTime())) {
+    return `${cell.getFullYear()}-${String(cell.getMonth() + 1).padStart(2, "0")}-${String(cell.getDate()).padStart(2, "0")}`;
+  }
+
+  const str = String(cell ?? "").trim();
+  if (!str) return null;
+
+  // DD/MM/YYYY
+  const brMatch = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (brMatch) {
+    return `${brMatch[3]}-${brMatch[2].padStart(2, "0")}-${brMatch[1].padStart(2, "0")}`;
+  }
+
+  // ISO format
+  const isoMatch = str.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (isoMatch) {
+    return `${isoMatch[1]}-${isoMatch[2]}-${isoMatch[3]}`;
+  }
+
+  // Just a day number → build date from month context
+  const dayNum = parseInt(str);
+  if (!isNaN(dayNum) && dayNum >= 1 && dayNum <= 31) {
+    const day = Math.min(dayNum, 28);
+    return `${year}-${String(monthIndex + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+  }
+
+  return null;
+}
+
+function isSectionEnd(row: unknown[]): boolean {
+  if (!row || row.length === 0) return false;
+
+  // TOTAL row
+  for (let j = 0; j < Math.min(3, row.length); j++) {
+    if (String(row[j] ?? "").toLowerCase().includes("total")) return true;
+  }
+
+  // Next section marker
+  const first = normalizeText(String(row[0] ?? ""));
+  if (
+    first.includes("receitas") ||
+    first.includes("despesas fixas") ||
+    first.includes("despesas vari")
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
+function parseFinancialDashboard(
+  workbook: XLSX.WorkBook,
+  monthSheets: string[]
+): ParsedTransaction[] {
+  const results: ParsedTransaction[] = [];
+
+  for (const sheetName of monthSheets) {
+    const sheet = workbook.Sheets[sheetName];
+    if (!sheet) continue;
+
+    const rows = XLSX.utils.sheet_to_json<unknown[]>(sheet, {
+      header: 1,
+      raw: true,
+      defval: "",
+    });
+
+    // Determine month index
+    const monthIndex = MONTHS_PT.findIndex((m) =>
+      normalizeText(sheetName).includes(normalizeText(m))
+    );
+    if (monthIndex === -1) continue;
+
+    // Extract year from first rows
+    let year = new Date().getFullYear();
+    let yearFound = false;
+    for (let i = 0; i < Math.min(5, rows.length) && !yearFound; i++) {
+      const row = rows[i];
+      if (!Array.isArray(row)) continue;
+      for (const cell of row) {
+        const match = String(cell ?? "").match(/\b(20\d{2})\b/);
+        if (match) {
+          year = parseInt(match[1]);
+          yearFound = true;
+          break;
+        }
+      }
+    }
+
+    // Find section markers
+    let incomeStart = -1;
+    let fixedStart = -1;
+    let variableStart = -1;
+
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i] as unknown[];
+      if (!row || row.length === 0) continue;
+      const firstCell = normalizeText(String(row[0] ?? ""));
+
+      if (firstCell.includes("receitas") && incomeStart === -1) {
+        incomeStart = i;
+      } else if (firstCell.includes("despesas fixas") && fixedStart === -1) {
+        fixedStart = i;
+      } else if (
+        firstCell.includes("despesas vari") &&
+        variableStart === -1
+      ) {
+        variableStart = i;
+      }
+    }
+
+    // Parse income section (marker+1 = header, marker+2 = first data row)
+    if (incomeStart !== -1) {
+      for (let i = incomeStart + 2; i < rows.length; i++) {
+        const row = rows[i] as unknown[];
+        if (!row) continue;
+        if (isSectionEnd(row)) break;
+
+        const description = String(row[2] ?? "").trim();
+        const amount = parseAmountBR(row[3]);
+        const source = String(row[4] ?? "").trim();
+
+        if (!description || amount <= 0) continue;
+
+        const dateStr = parseDateCell(row[1], year, monthIndex);
+        if (!dateStr) continue;
+
+        results.push({
+          type: "income",
+          amount,
+          description,
+          date: dateStr,
+          source: source || undefined,
+        });
+      }
+    }
+
+    // Parse fixed expenses section
+    if (fixedStart !== -1) {
+      for (let i = fixedStart + 2; i < rows.length; i++) {
+        const row = rows[i] as unknown[];
+        if (!row) continue;
+        if (isSectionEnd(row)) break;
+
+        const description = String(row[2] ?? "").trim();
+        const amount = parseAmountBR(row[3]);
+        const category = String(row[4] ?? "").trim();
+
+        if (!description || amount <= 0) continue;
+
+        // Build date from due day + month/year of this sheet
+        const dueDay = parseInt(String(row[1] ?? ""));
+        const day = isNaN(dueDay)
+          ? 1
+          : Math.min(Math.max(dueDay, 1), 28);
+        const dateStr = `${year}-${String(monthIndex + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+
+        results.push({
+          type: "expense",
+          amount,
+          description,
+          date: dateStr,
+          category: category || undefined,
+          isFixed: true,
+        });
+      }
+    }
+
+    // Parse variable expenses section
+    if (variableStart !== -1) {
+      for (let i = variableStart + 2; i < rows.length; i++) {
+        const row = rows[i] as unknown[];
+        if (!row) continue;
+        if (isSectionEnd(row)) break;
+
+        const description = String(row[2] ?? "").trim();
+        const amount = parseAmountBR(row[3]);
+        const category = String(row[4] ?? "").trim();
+        const jarLabel = normalizeText(String(row[5] ?? ""));
+        const paymentLabel = normalizeText(String(row[6] ?? ""));
+
+        if (!description || amount <= 0) continue;
+
+        const dateStr = parseDateCell(row[1], year, monthIndex);
+        if (!dateStr) continue;
+
+        results.push({
+          type: "expense",
+          amount,
+          description,
+          date: dateStr,
+          category: category || undefined,
+          jarType: JAR_LABEL_MAP[jarLabel] || undefined,
+          paymentMethod: PAYMENT_METHOD_MAP[paymentLabel] || undefined,
+        });
+      }
+    }
+  }
+
+  return results;
 }
 
 export function ImportData() {
@@ -150,6 +419,19 @@ export function ImportData() {
   const parseXLSX = useCallback(
     (fileContent: ArrayBuffer): ParsedTransaction[] => {
       const workbook = XLSX.read(fileContent, { type: "array", cellDates: true });
+
+      // Auto-detect dashboard layout (sheets named after months)
+      const monthSheets = workbook.SheetNames.filter((name) =>
+        MONTHS_PT.some((m) =>
+          normalizeText(name).includes(normalizeText(m))
+        )
+      );
+
+      if (monthSheets.length > 0) {
+        return parseFinancialDashboard(workbook, monthSheets);
+      }
+
+      // Fallback: simple tabular parser
       const sheetName = workbook.SheetNames[0];
       const sheet = workbook.Sheets[sheetName];
       const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, {
