@@ -25,7 +25,7 @@ export const authConfig: NextAuthConfig = {
     authorized({ auth, request: { nextUrl } }) {
       const isLoggedIn = !!auth?.user;
       const { pathname } = nextUrl;
-      const publicRoutes = ["/login", "/register"];
+      const publicRoutes = ["/login"];
 
       if (publicRoutes.includes(pathname)) {
         if (isLoggedIn) return Response.redirect(new URL("/dashboard", nextUrl));

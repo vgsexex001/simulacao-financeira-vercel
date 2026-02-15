@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { loginSchema, type LoginInput } from "@/lib/validations";
@@ -84,12 +83,6 @@ export default function LoginPage() {
             Entrar
           </Button>
         </form>
-        <p className="mt-4 text-center text-sm text-muted-foreground">
-          Não tem conta?{" "}
-          <Link href="/register" className="text-primary hover:underline">
-            Criar conta
-          </Link>
-        </p>
       </CardContent>
     </Card>
   );
