@@ -59,7 +59,15 @@ function excelDateToJSDate(serial: number): Date {
 
 function parseDateCell(cell: unknown, year: number, monthIdx: number): Date | null {
   if (typeof cell === "number") {
-    if (cell > 40000) return excelDateToJSDate(cell);
+    if (cell > 40000) {
+      const converted = excelDateToJSDate(cell);
+      // If the serial date falls outside the expected month, override to use the sheet's month
+      if (converted.getMonth() !== monthIdx || converted.getFullYear() !== year) {
+        const day = Math.min(converted.getDate(), 28);
+        return new Date(year, monthIdx, day);
+      }
+      return converted;
+    }
     if (cell >= 1 && cell <= 31) return new Date(year, monthIdx, Math.min(cell, 28));
     return null;
   }
