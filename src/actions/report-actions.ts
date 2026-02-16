@@ -2,17 +2,20 @@
 
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth-utils";
-import { startOfMonth, endOfMonth } from "date-fns";
+import { getCustomMonthRangeForMonth } from "@/lib/date-helpers";
 
 export async function getMonthlyReport(month: number, year: number) {
   const user = await requireAuth();
-  const monthStart = startOfMonth(new Date(year, month - 1));
-  const monthEnd = endOfMonth(new Date(year, month - 1));
 
-  const [expenses, incomes, settings] = await Promise.all([
+  const settings = await prisma.userSettings.findUnique({ where: { userId: user.id } });
+  const monthStartDay = settings?.monthStartDay ?? 1;
+  const { start: monthStart, end: monthEnd } = getCustomMonthRangeForMonth(month, year, monthStartDay);
+
+  const [expenses, incomes] = await Promise.all([
     prisma.expense.findMany({
       where: {
         userId: user.id,
+        isPaid: true,
         date: { gte: monthStart, lte: monthEnd },
       },
       include: { category: true },
@@ -26,7 +29,6 @@ export async function getMonthlyReport(month: number, year: number) {
       include: { source: true },
       orderBy: { date: "desc" },
     }),
-    prisma.userSettings.findUnique({ where: { userId: user.id } }),
   ]);
 
   const initialBalance = Number(settings?.initialBalance || 0);
@@ -118,6 +120,7 @@ export async function getAnnualReport(year: number) {
     prisma.expense.findMany({
       where: {
         userId: user.id,
+        isPaid: true,
         date: { gte: yearStart, lte: yearEnd },
       },
       include: { category: true },

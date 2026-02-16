@@ -52,6 +52,7 @@ interface Trends {
 interface BalanceHeroProps {
   totalIncome: number;
   totalExpenses: number;
+  totalPending: number;
   balance: number;
   savingsRate: number;
   cumulativeBalance: number;
@@ -61,14 +62,22 @@ interface BalanceHeroProps {
   trends: Trends;
 }
 
-function TrendBadge({ change }: { change: number | null }) {
+function TrendBadge({
+  change,
+  invertColors = false,
+}: {
+  change: number | null;
+  /** When true, up=red and down=green (used for expenses where less is better) */
+  invertColors?: boolean;
+}) {
   if (change === null) return null;
   const isUp = change > 0;
   const Icon = isUp ? ArrowUpRight : ArrowDownRight;
+  const isPositive = invertColors ? !isUp : isUp;
   return (
     <span
       className={`inline-flex items-center gap-0.5 text-[10px] font-medium ${
-        isUp ? "text-green-500" : "text-red-500"
+        isPositive ? "text-green-500" : "text-red-500"
       }`}
     >
       <Icon className="h-3 w-3" />
@@ -80,6 +89,7 @@ function TrendBadge({ change }: { change: number | null }) {
 export function BalanceHero({
   totalIncome,
   totalExpenses,
+  totalPending,
   balance,
   savingsRate,
   cumulativeBalance,
@@ -161,8 +171,13 @@ export function BalanceHero({
                 <span className="text-sm font-semibold font-mono text-red-500">
                   {formatBRL(totalExpenses)}
                 </span>
-                <TrendBadge change={trends.expenseChange} />
+                <TrendBadge change={trends.expenseChange} invertColors />
               </div>
+              {totalPending > 0 && (
+                <div className="mt-0.5 text-[10px] text-muted-foreground">
+                  +{formatBRL(totalPending)} pendentes
+                </div>
+              )}
             </div>
             <div>
               <div className="flex items-center gap-1 text-xs text-muted-foreground">
@@ -226,6 +241,12 @@ export function BalanceHero({
                   {formatBRL(cumulativeBalance)}
                 </span>
               </div>
+              {totalPending > 0 && (
+                <div className="mt-2 flex justify-between text-yellow-500 text-xs">
+                  <span>Despesas pendentes</span>
+                  <span>{formatBRL(totalPending)}</span>
+                </div>
+              )}
             </div>
 
             {/* Income breakdown */}

@@ -1,20 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
-import { startOfMonth, endOfMonth } from "date-fns";
+import { getCustomMonthRangeForMonth } from "@/lib/date-helpers";
 import Papa from "papaparse";
 import * as XLSX from "xlsx";
 import { jsPDF } from "jspdf";
 import { MONTHS_PT } from "@/lib/constants";
 
 async function getReportData(userId: string, month: number, year: number) {
-  const monthStart = startOfMonth(new Date(year, month - 1));
-  const monthEnd = endOfMonth(new Date(year, month - 1));
+  const settings = await prisma.userSettings.findUnique({ where: { userId } });
+  const monthStartDay = settings?.monthStartDay ?? 1;
+  const { start: monthStart, end: monthEnd } = getCustomMonthRangeForMonth(month, year, monthStartDay);
 
-  const [expenses, incomes, settings] = await Promise.all([
+  const [expenses, incomes] = await Promise.all([
     prisma.expense.findMany({
       where: {
         userId,
+        isPaid: true,
         date: { gte: monthStart, lte: monthEnd },
       },
       include: { category: true },
@@ -28,7 +30,6 @@ async function getReportData(userId: string, month: number, year: number) {
       include: { source: true },
       orderBy: { date: "asc" },
     }),
-    prisma.userSettings.findUnique({ where: { userId } }),
   ]);
 
   const initialBalance = Number(settings?.initialBalance || 0);

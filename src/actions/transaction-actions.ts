@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { requireAuth } from "@/lib/auth-utils";
 import { revalidatePath } from "next/cache";
-import { startOfMonth, endOfMonth } from "date-fns";
+import { getCustomMonthRangeForMonth } from "@/lib/date-helpers";
 
 export async function createExpense(data: {
   amount: number;
@@ -201,14 +201,20 @@ export async function getTransactions(params: {
   const now = new Date();
   const targetMonth = month ?? now.getMonth() + 1;
   const targetYear = year ?? now.getFullYear();
-  const monthStart = startOfMonth(new Date(targetYear, targetMonth - 1));
-  const monthEnd = endOfMonth(new Date(targetYear, targetMonth - 1));
+
+  const settings = await prisma.userSettings.findUnique({
+    where: { userId: user.id },
+    select: { monthStartDay: true },
+  });
+  const monthStartDay = settings?.monthStartDay ?? 1;
+  const { start: monthStart, end: monthEnd } = getCustomMonthRangeForMonth(targetMonth, targetYear, monthStartDay);
 
   const [expenses, incomes, categories, sources] = await Promise.all([
     type !== "income"
       ? prisma.expense.findMany({
           where: {
             userId: user.id,
+            isPaid: true,
             date: { gte: monthStart, lte: monthEnd },
             ...(categoryId ? { categoryId } : {}),
             ...(paymentMethod ? { paymentMethod } : {}),

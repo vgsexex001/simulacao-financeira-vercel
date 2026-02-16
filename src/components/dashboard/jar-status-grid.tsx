@@ -10,12 +10,14 @@ interface JarStatusGridProps {
   jarRules: Record<string, number>;
   jarBalances: Record<string, number>;
   totalIncome: number;
+  unallocatedExpenses?: number;
 }
 
 export function JarStatusGrid({
   jarRules,
   jarBalances,
   totalIncome,
+  unallocatedExpenses = 0,
 }: JarStatusGridProps) {
   const jars = Object.entries(JAR_CONFIG);
 
@@ -70,6 +72,11 @@ export function JarStatusGrid({
             );
           })}
         </div>
+        {unallocatedExpenses > 0 && (
+          <p className="mt-3 text-xs text-muted-foreground rounded-lg bg-yellow-500/10 border border-yellow-500/20 p-2.5">
+            {formatBRL(unallocatedExpenses)} em despesas sem jarro atribuído (despesas fixas e importadas).
+          </p>
+        )}
       </CardContent>
     </Card>
   );

@@ -2,7 +2,8 @@
 
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth-utils";
-import { startOfMonth, endOfMonth, subMonths } from "date-fns";
+import { startOfMonth, subMonths } from "date-fns";
+import { getCustomMonthRange } from "@/lib/date-helpers";
 
 export interface BenchmarkMetric {
   id: string;
@@ -60,16 +61,17 @@ export async function getFinancialBenchmark(): Promise<BenchmarkData> {
   const user = await requireAuth();
 
   const now = new Date();
+  const settings = await prisma.userSettings.findUnique({ where: { userId: user.id } });
+  const monthStartDay = settings?.monthStartDay ?? 1;
+  const { start: currentMonthStart, end: currentMonthEnd } = getCustomMonthRange(now, monthStartDay);
   const threeMonthsAgo = subMonths(now, 3);
-  const currentMonthStart = startOfMonth(now);
-  const currentMonthEnd = endOfMonth(now);
 
-  const [settings, expenses3m, incomes3m, currentExpenses, currentIncomes, goals] =
+  const [expenses3m, incomes3m, currentExpenses, currentIncomes, goals] =
     await Promise.all([
-      prisma.userSettings.findUnique({ where: { userId: user.id } }),
       prisma.expense.findMany({
         where: {
           userId: user.id,
+          isPaid: true,
           date: { gte: startOfMonth(threeMonthsAgo), lte: currentMonthEnd },
         },
         include: { category: true },
@@ -83,6 +85,7 @@ export async function getFinancialBenchmark(): Promise<BenchmarkData> {
       prisma.expense.findMany({
         where: {
           userId: user.id,
+          isPaid: true,
           date: { gte: currentMonthStart, lte: currentMonthEnd },
         },
         include: { category: true },

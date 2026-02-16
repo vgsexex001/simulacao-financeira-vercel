@@ -3,7 +3,7 @@
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth-utils";
 import { revalidatePath } from "next/cache";
-import { startOfMonth, endOfMonth } from "date-fns";
+import { getCustomMonthRange } from "@/lib/date-helpers";
 
 export async function getFixedExpenses() {
   const user = await requireAuth();
@@ -141,8 +141,9 @@ export async function autoRegisterFixedExpenses() {
   const user = await requireAuth();
 
   const now = new Date();
-  const monthStart = startOfMonth(now);
-  const monthEnd = endOfMonth(now);
+  const settings = await prisma.userSettings.findUnique({ where: { userId: user.id } });
+  const monthStartDay = settings?.monthStartDay ?? 1;
+  const { start: monthStart, end: monthEnd } = getCustomMonthRange(now, monthStartDay);
 
   const activeTemplates = await prisma.fixedExpenseTemplate.findMany({
     where: { userId: user.id, isActive: true },
@@ -159,13 +160,13 @@ export async function autoRegisterFixedExpenses() {
   });
 
   const existingKeys = new Set(
-    existingFixed.map((e) => `${e.description}::${e.categoryId}`)
+    existingFixed.map((e) => `${e.description.toLowerCase()}::${e.categoryId}`)
   );
 
   let created = 0;
 
   for (const template of activeTemplates) {
-    const key = `${template.name}::${template.categoryId}`;
+    const key = `${template.name.toLowerCase()}::${template.categoryId}`;
     if (existingKeys.has(key)) continue;
 
     const dueDate = new Date(

@@ -4,20 +4,21 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth-utils";
 import {
   startOfMonth,
-  endOfMonth,
   startOfYear,
   endOfYear,
   eachDayOfInterval,
   format,
 } from "date-fns";
+import { getCustomMonthRange, getCustomMonthRangeForMonth } from "@/lib/date-helpers";
 
 // ---------- Monthly Analytics ----------
 
 export async function getMonthlyAnalytics(month: number, year: number) {
   const user = await requireAuth();
 
-  const monthStart = startOfMonth(new Date(year, month - 1));
-  const monthEnd = endOfMonth(new Date(year, month - 1));
+  const settings = await prisma.userSettings.findUnique({ where: { userId: user.id } });
+  const monthStartDay = settings?.monthStartDay ?? 1;
+  const { start: monthStart, end: monthEnd } = getCustomMonthRangeForMonth(month, year, monthStartDay);
 
   const [expenses, incomes] = await Promise.all([
     prisma.expense.findMany({
@@ -140,6 +141,8 @@ export async function getAnnualAnalytics(year: number) {
     prisma.userSettings.findUnique({ where: { userId: user.id } }),
   ]);
 
+  const monthStartDay = settings?.monthStartDay ?? 1;
+
   // Build month-by-month data (1-12)
   const monthlyData = Array.from({ length: 12 }, (_, i) => {
     const month = i + 1;
@@ -155,12 +158,13 @@ export async function getAnnualAnalytics(year: number) {
     }
 
     // Calculate from raw data if no snapshot
+    const { start: mStart, end: mEnd } = getCustomMonthRangeForMonth(month, year, monthStartDay);
     const monthIncome = incomes
-      .filter((inc) => inc.date.getMonth() + 1 === month)
+      .filter((inc) => inc.date >= mStart && inc.date <= mEnd)
       .reduce((sum, inc) => sum + Number(inc.amount), 0);
 
     const monthExpenses = expenses
-      .filter((exp) => exp.date.getMonth() + 1 === month)
+      .filter((exp) => exp.date >= mStart && exp.date <= mEnd)
       .reduce((sum, exp) => sum + Number(exp.amount), 0);
 
     return {
@@ -308,20 +312,23 @@ export async function getWhatIfData() {
 export async function getComparisonData(month: number, year: number) {
   const user = await requireAuth();
 
+  const settings = await prisma.userSettings.findUnique({ where: { userId: user.id } });
+  const monthStartDay = settings?.monthStartDay ?? 1;
+
   // Current month
-  const currentStart = startOfMonth(new Date(year, month - 1));
-  const currentEnd = endOfMonth(new Date(year, month - 1));
+  const { start: currentStart, end: currentEnd } = getCustomMonthRangeForMonth(month, year, monthStartDay);
 
   // Previous month
   const prevDate = new Date(year, month - 2);
   const prevMonth = prevDate.getMonth() + 1;
   const prevYear = prevDate.getFullYear();
-  const prevStart = startOfMonth(prevDate);
-  const prevEnd = endOfMonth(prevDate);
+  const { start: prevStart, end: prevEnd } = getCustomMonthRangeForMonth(prevMonth, prevYear, monthStartDay);
 
   // Last 6 months for trends
   const sixMonthsAgo = new Date(year, month - 7);
-  const trendStart = startOfMonth(sixMonthsAgo);
+  const sixMonthsAgoMonth = sixMonthsAgo.getMonth() + 1;
+  const sixMonthsAgoYear = sixMonthsAgo.getFullYear();
+  const { start: trendStart } = getCustomMonthRangeForMonth(sixMonthsAgoMonth, sixMonthsAgoYear, monthStartDay);
 
   const [currentExpenses, prevExpenses, trendExpenses] = await Promise.all([
     prisma.expense.findMany({
@@ -356,8 +363,7 @@ export async function getComparisonData(month: number, year: number) {
     const d = new Date(year, month - 1 - i);
     const m = d.getMonth() + 1;
     const y = d.getFullYear();
-    const mStart = startOfMonth(d);
-    const mEnd = endOfMonth(d);
+    const { start: mStart, end: mEnd } = getCustomMonthRangeForMonth(m, y, monthStartDay);
 
     for (const e of trendExpenses) {
       if (e.date >= mStart && e.date <= mEnd) {
@@ -418,23 +424,25 @@ export async function detectAnomalies() {
   const user = await requireAuth();
   const now = new Date();
 
+  const settings = await prisma.userSettings.findUnique({ where: { userId: user.id } });
+  const monthStartDay = settings?.monthStartDay ?? 1;
+
   // Current month
-  const currentStart = startOfMonth(now);
-  const currentEnd = endOfMonth(now);
+  const { start: currentStart, end: currentEnd } = getCustomMonthRange(now, monthStartDay);
 
   // Last 3 months (before current)
   const threeMonthsAgo = new Date();
   threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
   const historicalStart = startOfMonth(threeMonthsAgo);
-  const historicalEnd = startOfMonth(now); // Exclusive of current month
+  const historicalEnd = currentStart; // Exclusive of current month cycle
 
   const [currentExpenses, historicalExpenses] = await Promise.all([
     prisma.expense.findMany({
-      where: { userId: user.id, date: { gte: currentStart, lte: currentEnd } },
+      where: { userId: user.id, isPaid: true, date: { gte: currentStart, lte: currentEnd } },
       include: { category: true },
     }),
     prisma.expense.findMany({
-      where: { userId: user.id, date: { gte: historicalStart, lt: historicalEnd } },
+      where: { userId: user.id, isPaid: true, date: { gte: historicalStart, lt: historicalEnd } },
       include: { category: true },
     }),
   ]);

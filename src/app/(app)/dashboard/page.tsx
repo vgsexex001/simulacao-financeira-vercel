@@ -26,6 +26,7 @@ export default async function DashboardPage() {
       <BalanceHero
         totalIncome={data.totalIncome}
         totalExpenses={data.totalExpenses}
+        totalPending={data.totalPending}
         balance={data.balance}
         savingsRate={data.savingsRate}
         cumulativeBalance={data.cumulativeBalance}
@@ -61,6 +62,7 @@ export default async function DashboardPage() {
         jarRules={data.jarRules}
         jarBalances={data.jarBalances}
         totalIncome={data.totalIncome}
+        unallocatedExpenses={data.unallocatedExpenses}
       />
 
       <div className="grid gap-6 md:grid-cols-2">

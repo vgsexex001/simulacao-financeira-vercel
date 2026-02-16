@@ -2,8 +2,9 @@
 
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth-utils";
-import { startOfMonth, endOfMonth, subMonths } from "date-fns";
+import { subMonths } from "date-fns";
 import { JAR_CONFIG } from "@/lib/constants";
+import { getCustomMonthRange } from "@/lib/date-helpers";
 
 export interface FinancialTip {
   id: string;
@@ -18,41 +19,45 @@ export interface FinancialTip {
 export async function getFinancialAdvice(): Promise<FinancialTip[]> {
   const user = await requireAuth();
   const now = new Date();
-  const monthStart = startOfMonth(now);
-  const monthEnd = endOfMonth(now);
 
-  // Query all user data in parallel
-  const [
-    settings,
-    monthExpenses,
-    monthIncomes,
-    goals,
-    recentSnapshots,
-    fixedTemplates,
-  ] = await Promise.all([
-    prisma.userSettings.findUnique({ where: { userId: user.id } }),
-    prisma.expense.findMany({
-      where: { userId: user.id, date: { gte: monthStart, lte: monthEnd } },
-      include: { category: true },
-    }),
-    prisma.income.findMany({
-      where: { userId: user.id, date: { gte: monthStart, lte: monthEnd } },
-    }),
-    prisma.goal.findMany({
-      where: { userId: user.id },
-      orderBy: { createdAt: "desc" },
-    }),
-    prisma.monthSnapshot.findMany({
-      where: {
-        userId: user.id,
-        createdAt: { gte: subMonths(now, 6) },
-      },
-      orderBy: [{ year: "asc" }, { month: "asc" }],
-    }),
-    prisma.fixedExpenseTemplate.findMany({
-      where: { userId: user.id, isActive: true },
-    }),
-  ]);
+  // Fetch settings first to determine custom month range
+  const settings = await prisma.userSettings.findUnique({
+    where: { userId: user.id },
+  });
+  const monthStartDay = settings?.monthStartDay ?? 1;
+  const { start: monthStart, end: monthEnd } = getCustomMonthRange(
+    now,
+    monthStartDay
+  );
+
+  // Query remaining user data in parallel
+  const [monthExpenses, monthIncomes, goals, recentSnapshots, fixedTemplates] =
+    await Promise.all([
+      prisma.expense.findMany({
+        where: { userId: user.id, date: { gte: monthStart, lte: monthEnd } },
+        include: { category: true },
+      }),
+      prisma.income.findMany({
+        where: { userId: user.id, date: { gte: monthStart, lte: monthEnd } },
+      }),
+      prisma.goal.findMany({
+        where: { userId: user.id },
+        orderBy: { createdAt: "desc" },
+      }),
+      prisma.monthSnapshot.findMany({
+        where: {
+          userId: user.id,
+          createdAt: { gte: subMonths(now, 6) },
+        },
+        orderBy: [{ year: "asc" }, { month: "asc" }],
+      }),
+      prisma.fixedExpenseTemplate.findMany({
+        where: { userId: user.id, isActive: true },
+      }),
+    ]);
+
+  // Only count paid expenses in totals
+  const paidExpenses = monthExpenses.filter((e) => e.isPaid);
 
   const tips: FinancialTip[] = [];
 
@@ -61,7 +66,7 @@ export async function getFinancialAdvice(): Promise<FinancialTip[]> {
     (sum, i) => sum + Number(i.amount),
     0
   );
-  const totalExpenses = monthExpenses.reduce(
+  const totalExpenses = paidExpenses.reduce(
     (sum, e) => sum + Number(e.amount),
     0
   );
@@ -79,7 +84,7 @@ export async function getFinancialAdvice(): Promise<FinancialTip[]> {
   }) as Record<string, number>;
 
   const jarBalances: Record<string, number> = {};
-  for (const expense of monthExpenses) {
+  for (const expense of paidExpenses) {
     if (expense.jarType) {
       jarBalances[expense.jarType] =
         (jarBalances[expense.jarType] || 0) + Number(expense.amount);
@@ -88,7 +93,7 @@ export async function getFinancialAdvice(): Promise<FinancialTip[]> {
 
   // Category breakdown
   const categoryTotals: Record<string, { name: string; total: number }> = {};
-  for (const expense of monthExpenses) {
+  for (const expense of paidExpenses) {
     const catId = expense.categoryId;
     if (!categoryTotals[catId]) {
       categoryTotals[catId] = { name: expense.category.name, total: 0 };
