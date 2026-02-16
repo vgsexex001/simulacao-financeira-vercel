@@ -2,8 +2,8 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatBRL } from "@/lib/format";
-import { Clock } from "lucide-react";
-import { format } from "date-fns";
+import { Clock, PlusCircle } from "lucide-react";
+import Link from "next/link";
 
 interface Transaction {
   id: string;
@@ -36,9 +36,19 @@ export function TodayFeed({ expenses, incomes }: TodayFeedProps) {
       </CardHeader>
       <CardContent>
         {all.length === 0 ? (
-          <p className="py-8 text-center text-sm text-muted-foreground">
-            Nenhuma transação hoje
-          </p>
+          <div className="flex flex-col items-center gap-3 py-8 text-center">
+            <Clock className="h-8 w-8 text-muted-foreground/50" />
+            <p className="text-sm text-muted-foreground">
+              Nenhuma transação hoje
+            </p>
+            <Link
+              href="/transactions"
+              className="inline-flex items-center gap-1.5 text-xs text-primary hover:underline"
+            >
+              <PlusCircle className="h-3.5 w-3.5" />
+              Registrar transação
+            </Link>
+          </div>
         ) : (
           <div className="space-y-3">
             {all.map((t) => (

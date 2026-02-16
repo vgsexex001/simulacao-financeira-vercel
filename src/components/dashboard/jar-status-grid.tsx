@@ -28,6 +28,11 @@ export function JarStatusGrid({
         </CardTitle>
       </CardHeader>
       <CardContent>
+        {totalIncome === 0 && (
+          <p className="mb-3 text-xs text-muted-foreground rounded-lg bg-muted/50 p-3">
+            Registre receitas para ver a alocação dos jarros. Os valores são calculados com base na renda do mês.
+          </p>
+        )}
         <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
           {jars.map(([key, config]) => {
             const percent = jarRules[key] || 0;

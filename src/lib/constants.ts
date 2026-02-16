@@ -83,3 +83,12 @@ export const MONTHS_SHORT_PT = [
   "Jan", "Fev", "Mar", "Abr", "Mai", "Jun",
   "Jul", "Ago", "Set", "Out", "Nov", "Dez",
 ] as const;
+
+export const ALERT_THRESHOLDS = {
+  BUDGET_WARNING_PERCENT: 80,
+  BUDGET_DANGER_PERCENT: 100,
+  SAVINGS_RATE_GOOD: 20,
+  ANOMALY_RATIO: 2,
+  DUE_DATE_WARN_DAYS: 3,
+  PROJECTION_MIN_DAYS: 5,
+} as const;

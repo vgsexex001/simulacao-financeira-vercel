@@ -38,9 +38,18 @@ export function GoalsCarousel({ goals }: GoalsCarouselProps) {
       </CardHeader>
       <CardContent>
         {goals.length === 0 ? (
-          <p className="py-8 text-center text-sm text-muted-foreground">
-            Nenhuma meta definida
-          </p>
+          <div className="flex flex-col items-center gap-3 py-8 text-center">
+            <Target className="h-8 w-8 text-muted-foreground/50" />
+            <p className="text-sm text-muted-foreground">
+              Nenhuma meta definida
+            </p>
+            <Link
+              href="/goals"
+              className="text-xs text-primary hover:underline"
+            >
+              Criar primeira meta
+            </Link>
+          </div>
         ) : (
           <div className="space-y-4">
             {goals.map((goal) => {

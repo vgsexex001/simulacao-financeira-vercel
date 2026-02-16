@@ -1,9 +1,13 @@
 "use client";
 
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { AlertTriangle, Bell, TrendingDown, TrendingUp, Target, Calendar } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { AlertTriangle, Bell, TrendingDown, TrendingUp, Target, Calendar, X } from "lucide-react";
 import { formatBRL } from "@/lib/format";
+import { JAR_CONFIG } from "@/lib/constants";
 import { motion, AnimatePresence } from "framer-motion";
+import Link from "next/link";
 
 interface Alert {
   id: string;
@@ -11,6 +15,8 @@ interface Alert {
   icon: "budget" | "due" | "overspend" | "savings" | "goal" | "projection";
   title: string;
   message: string;
+  actionUrl?: string;
+  actionLabel?: string;
 }
 
 interface SmartAlertsProps {
@@ -35,20 +41,18 @@ interface SmartAlertsProps {
   }>;
 }
 
-const JAR_LABELS: Record<string, string> = {
-  necessities: "Necessidades",
-  education: "Educação",
-  savings: "Poupança",
-  play: "Diversão",
-  investment: "Investimentos",
-  giving: "Doações",
+const ALERT_STYLES: Record<string, { bg: string; border: string; icon: string }> = {
+  danger: { bg: "bg-red-500/10", border: "border-red-500/30", icon: "text-red-500" },
+  warning: { bg: "bg-yellow-500/10", border: "border-yellow-500/30", icon: "text-yellow-500" },
+  info: { bg: "bg-blue-500/10", border: "border-blue-500/30", icon: "text-blue-500" },
+  success: { bg: "bg-green-500/10", border: "border-green-500/30", icon: "text-green-500" },
 };
 
-const ALERT_STYLES: Record<string, { bg: string; border: string; icon: string }> = {
-  warning: { bg: "bg-yellow-500/10", border: "border-yellow-500/30", icon: "text-yellow-500" },
-  danger: { bg: "bg-red-500/10", border: "border-red-500/30", icon: "text-red-500" },
-  success: { bg: "bg-green-500/10", border: "border-green-500/30", icon: "text-green-500" },
-  info: { bg: "bg-blue-500/10", border: "border-blue-500/30", icon: "text-blue-500" },
+const TYPE_PRIORITY: Record<string, number> = {
+  danger: 0,
+  warning: 1,
+  info: 2,
+  success: 3,
 };
 
 function getAlertIcon(icon: Alert["icon"], className: string) {
@@ -73,7 +77,7 @@ function generateAlerts(props: SmartAlertsProps): Alert[] {
     if (allocated <= 0) continue;
 
     const usagePercent = (spent / allocated) * 100;
-    const jarLabel = JAR_LABELS[jarType] || jarType;
+    const jarLabel = JAR_CONFIG[jarType as keyof typeof JAR_CONFIG]?.label || jarType;
 
     if (usagePercent >= 100) {
       alerts.push({
@@ -82,6 +86,8 @@ function generateAlerts(props: SmartAlertsProps): Alert[] {
         icon: "budget",
         title: `${jarLabel}: Orçamento estourado!`,
         message: `Você gastou ${formatBRL(spent)} de ${formatBRL(allocated)} alocados (${Math.round(usagePercent)}%).`,
+        actionUrl: "/jars",
+        actionLabel: "Gerenciar jarros",
       });
     } else if (usagePercent >= 80) {
       alerts.push({
@@ -90,6 +96,8 @@ function generateAlerts(props: SmartAlertsProps): Alert[] {
         icon: "budget",
         title: `${jarLabel}: ${Math.round(usagePercent)}% usado`,
         message: `Já usou ${formatBRL(spent)} de ${formatBRL(allocated)} alocados.`,
+        actionUrl: "/jars",
+        actionLabel: "Ver jarros",
       });
     }
   }
@@ -107,6 +115,8 @@ function generateAlerts(props: SmartAlertsProps): Alert[] {
         icon: "due",
         title: `${expense.name} vence hoje!`,
         message: `Despesa fixa de ${formatBRL(expense.amount)}.`,
+        actionUrl: "/fixed-expenses",
+        actionLabel: "Ver despesas fixas",
       });
     } else if (daysUntilDue > 0 && daysUntilDue <= 3) {
       alerts.push({
@@ -115,6 +125,8 @@ function generateAlerts(props: SmartAlertsProps): Alert[] {
         icon: "due",
         title: `${expense.name} vence em ${daysUntilDue} dia${daysUntilDue > 1 ? "s" : ""}`,
         message: `Despesa fixa de ${formatBRL(expense.amount)} vence dia ${expense.dueDay}.`,
+        actionUrl: "/fixed-expenses",
+        actionLabel: "Ver despesas fixas",
       });
     }
   }
@@ -139,6 +151,8 @@ function generateAlerts(props: SmartAlertsProps): Alert[] {
         icon: "overspend",
         title: `${anomaly.category}: gasto incomum`,
         message: `Você gastou ${formatBRL(anomaly.currentAmount)} este mês, ${anomaly.ratio.toFixed(1)}x acima da média de ${formatBRL(anomaly.averageAmount)}.`,
+        actionUrl: "/analytics",
+        actionLabel: "Ver análises",
       });
     }
   }
@@ -168,13 +182,25 @@ function generateAlerts(props: SmartAlertsProps): Alert[] {
     }
   }
 
+  // Sort by priority: danger > warning > info > success
+  alerts.sort((a, b) => TYPE_PRIORITY[a.type] - TYPE_PRIORITY[b.type]);
+
   return alerts;
 }
 
+const VISIBLE_LIMIT = 3;
+
 export function SmartAlerts(props: SmartAlertsProps) {
-  const alerts = generateAlerts(props);
+  const allAlerts = generateAlerts(props);
+  const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
+  const [expanded, setExpanded] = useState(false);
+
+  const alerts = allAlerts.filter((a) => !dismissedIds.has(a.id));
 
   if (alerts.length === 0) return null;
+
+  const visible = expanded ? alerts : alerts.slice(0, VISIBLE_LIMIT);
+  const hiddenCount = alerts.length - VISIBLE_LIMIT;
 
   return (
     <motion.div
@@ -187,29 +213,68 @@ export function SmartAlerts(props: SmartAlertsProps) {
           <CardTitle className="flex items-center gap-2 text-sm font-medium">
             <Bell className="h-4 w-4" />
             Alertas Inteligentes
+            <span className="ml-auto text-xs text-muted-foreground font-normal">
+              {alerts.length}
+            </span>
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">
           <AnimatePresence>
-            {alerts.slice(0, 5).map((alert, index) => {
+            {visible.map((alert, index) => {
               const style = ALERT_STYLES[alert.type];
               return (
                 <motion.div
                   key={alert.id}
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: index * 0.1 }}
+                  exit={{ opacity: 0, x: 20, height: 0 }}
+                  transition={{ delay: index * 0.05 }}
                   className={`flex items-start gap-3 rounded-lg border p-3 ${style.bg} ${style.border}`}
                 >
                   {getAlertIcon(alert.icon, `h-4 w-4 mt-0.5 shrink-0 ${style.icon}`)}
-                  <div className="min-w-0">
+                  <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium">{alert.title}</p>
                     <p className="text-xs text-muted-foreground">{alert.message}</p>
+                    {alert.actionUrl && (
+                      <Link
+                        href={alert.actionUrl}
+                        className="text-xs text-primary hover:underline mt-1 inline-block"
+                      >
+                        {alert.actionLabel || "Ver mais"}
+                      </Link>
+                    )}
                   </div>
+                  <button
+                    onClick={() => setDismissedIds((prev) => new Set(prev).add(alert.id))}
+                    className="shrink-0 rounded-sm p-0.5 text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
                 </motion.div>
               );
             })}
           </AnimatePresence>
+
+          {!expanded && hiddenCount > 0 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full text-xs"
+              onClick={() => setExpanded(true)}
+            >
+              Ver mais ({hiddenCount})
+            </Button>
+          )}
+          {expanded && alerts.length > VISIBLE_LIMIT && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full text-xs"
+              onClick={() => setExpanded(false)}
+            >
+              Ver menos
+            </Button>
+          )}
         </CardContent>
       </Card>
     </motion.div>

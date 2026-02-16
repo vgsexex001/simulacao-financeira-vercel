@@ -19,6 +19,9 @@ export async function getDashboardData() {
   const todayStart = startOfDay(now);
   const todayEnd = endOfDay(now);
 
+  const prevMonthStart = startOfMonth(subMonths(now, 1));
+  const prevMonthEnd = endOfMonth(subMonths(now, 1));
+
   const [
     settings,
     monthExpenses,
@@ -28,8 +31,8 @@ export async function getDashboardData() {
     goals,
     recentMonths,
     fixedTemplates,
-    allIncomeAgg,
-    allExpenseAgg,
+    prevMonthIncomeAgg,
+    prevMonthExpenseAgg,
   ] = await Promise.all([
     prisma.userSettings.findUnique({ where: { userId: user.id } }),
     prisma.expense.findMany({
@@ -68,11 +71,11 @@ export async function getDashboardData() {
       where: { userId: user.id, isActive: true },
     }),
     prisma.income.aggregate({
-      where: { userId: user.id },
+      where: { userId: user.id, date: { gte: prevMonthStart, lte: prevMonthEnd } },
       _sum: { amount: true },
     }),
     prisma.expense.aggregate({
-      where: { userId: user.id },
+      where: { userId: user.id, date: { gte: prevMonthStart, lte: prevMonthEnd } },
       _sum: { amount: true },
     }),
   ]);
@@ -89,10 +92,41 @@ export async function getDashboardData() {
   const balance = totalIncome - totalExpenses;
   const savingsRate = totalIncome > 0 ? (balance / totalIncome) * 100 : 0;
 
-  // Cumulative balance: initialBalance + all-time income - all-time expenses
-  const allTimeIncome = Number(allIncomeAgg._sum.amount || 0);
-  const allTimeExpenses = Number(allExpenseAgg._sum.amount || 0);
-  const cumulativeBalance = initialBalance + allTimeIncome - allTimeExpenses;
+  // Monthly-based saldo geral: initialBalance + month income - month expenses
+  const cumulativeBalance = initialBalance + totalIncome - totalExpenses;
+
+  // Previous month data for trends
+  const prevIncome = Number(prevMonthIncomeAgg._sum.amount || 0);
+  const prevExpenses = Number(prevMonthExpenseAgg._sum.amount || 0);
+
+  const trends = {
+    incomeChange: prevIncome > 0 ? ((totalIncome - prevIncome) / prevIncome) * 100 : null,
+    expenseChange: prevExpenses > 0 ? ((totalExpenses - prevExpenses) / prevExpenses) * 100 : null,
+  };
+
+  // Expense breakdown by category
+  const expenseByCategoryMap: Record<string, { name: string; amount: number; color: string | null }> = {};
+  for (const expense of monthExpenses) {
+    const catName = expense.category.name;
+    if (!expenseByCategoryMap[catName]) {
+      expenseByCategoryMap[catName] = { name: catName, amount: 0, color: expense.category.color };
+    }
+    expenseByCategoryMap[catName].amount += Number(expense.amount);
+  }
+  const expenseByCategory = Object.values(expenseByCategoryMap)
+    .sort((a, b) => b.amount - a.amount);
+
+  // Income breakdown by source
+  const incomeBySourceMap: Record<string, { name: string; amount: number }> = {};
+  for (const income of monthIncomes) {
+    const srcName = income.source.name;
+    if (!incomeBySourceMap[srcName]) {
+      incomeBySourceMap[srcName] = { name: srcName, amount: 0 };
+    }
+    incomeBySourceMap[srcName].amount += Number(income.amount);
+  }
+  const incomeBreakdown = Object.values(incomeBySourceMap)
+    .sort((a, b) => b.amount - a.amount);
 
   // Jar balances
   const jarBalances: Record<string, number> = {};
@@ -127,6 +161,44 @@ export async function getDashboardData() {
     };
   });
 
+  // Cashflow: prefer MonthSnapshots, fallback to computed from transactions
+  let cashflow = recentMonths.map((s) => ({
+    month: s.month,
+    year: s.year,
+    income: Number(s.totalIncome),
+    expenses: Number(s.totalExpenses),
+  }));
+
+  if (cashflow.length === 0) {
+    // Compute fallback from last 6 months of transactions
+    const sixMonthsAgo = subMonths(now, 5);
+    const fallbackStart = startOfMonth(sixMonthsAgo);
+
+    const [fallbackIncomes, fallbackExpenses] = await Promise.all([
+      prisma.income.findMany({
+        where: { userId: user.id, date: { gte: fallbackStart, lte: monthEnd } },
+        select: { amount: true, date: true },
+      }),
+      prisma.expense.findMany({
+        where: { userId: user.id, date: { gte: fallbackStart, lte: monthEnd } },
+        select: { amount: true, date: true },
+      }),
+    ]);
+
+    const monthMap: Record<string, { month: number; year: number; income: number; expenses: number }> = {};
+    for (const inc of fallbackIncomes) {
+      const key = `${inc.date.getFullYear()}-${inc.date.getMonth() + 1}`;
+      if (!monthMap[key]) monthMap[key] = { month: inc.date.getMonth() + 1, year: inc.date.getFullYear(), income: 0, expenses: 0 };
+      monthMap[key].income += Number(inc.amount);
+    }
+    for (const exp of fallbackExpenses) {
+      const key = `${exp.date.getFullYear()}-${exp.date.getMonth() + 1}`;
+      if (!monthMap[key]) monthMap[key] = { month: exp.date.getMonth() + 1, year: exp.date.getFullYear(), income: 0, expenses: 0 };
+      monthMap[key].expenses += Number(exp.amount);
+    }
+    cashflow = Object.values(monthMap).sort((a, b) => a.year - b.year || a.month - b.month);
+  }
+
   return {
     totalIncome,
     totalExpenses,
@@ -134,6 +206,14 @@ export async function getDashboardData() {
     savingsRate,
     cumulativeBalance,
     initialBalance,
+    trends,
+    balanceExplainer: {
+      initialBalance,
+      monthIncome: totalIncome,
+      monthExpenses: totalExpenses,
+    },
+    expenseByCategory,
+    incomeBreakdown,
     jarRules: (settings?.jarRulesJson || {}) as Record<string, number>,
     jarBalances,
     todayExpenses: todayExpenses.map((e) => ({
@@ -162,12 +242,7 @@ export async function getDashboardData() {
       icon: g.icon,
     })),
     dailyExpenses,
-    cashflow: recentMonths.map((s) => ({
-      month: s.month,
-      year: s.year,
-      income: Number(s.totalIncome),
-      expenses: Number(s.totalExpenses),
-    })),
+    cashflow,
     // SmartAlerts data
     fixedExpensesDue,
     daysInMonth: getDaysInMonth(now),

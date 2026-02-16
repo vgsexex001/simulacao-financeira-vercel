@@ -10,6 +10,7 @@ import { GoalsCarousel } from "@/components/dashboard/goals-carousel";
 import { CashflowMiniChart } from "@/components/dashboard/cashflow-mini-chart";
 import { SmartAlerts } from "@/components/dashboard/smart-alerts";
 import { FinancialAdvisor } from "@/components/dashboard/financial-advisor";
+import { TopCategoriesChart } from "@/components/dashboard/top-categories-chart";
 
 export const metadata = { title: "Dashboard" };
 
@@ -28,6 +29,10 @@ export default async function DashboardPage() {
         balance={data.balance}
         savingsRate={data.savingsRate}
         cumulativeBalance={data.cumulativeBalance}
+        balanceExplainer={data.balanceExplainer}
+        expenseByCategory={data.expenseByCategory}
+        incomeBreakdown={data.incomeBreakdown}
+        trends={data.trends}
       />
 
       <QuickActions />
@@ -59,9 +64,11 @@ export default async function DashboardPage() {
       />
 
       <div className="grid gap-6 md:grid-cols-2">
-        <CashflowMiniChart data={data.cashflow} />
         <GoalsCarousel goals={data.goals} />
+        <TopCategoriesChart data={data.expenseByCategory.slice(0, 5)} />
       </div>
+
+      <CashflowMiniChart data={data.cashflow} />
 
       <FinancialAdvisor tips={tips} />
     </div>

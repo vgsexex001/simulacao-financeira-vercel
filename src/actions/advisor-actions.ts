@@ -3,6 +3,7 @@
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth-utils";
 import { startOfMonth, endOfMonth, subMonths } from "date-fns";
+import { JAR_CONFIG } from "@/lib/constants";
 
 export interface FinancialTip {
   id: string;
@@ -13,15 +14,6 @@ export interface FinancialTip {
   actionLabel?: string;
   actionUrl?: string;
 }
-
-const JAR_LABELS: Record<string, string> = {
-  necessities: "Necessidades",
-  education: "Educacao",
-  savings: "Poupanca",
-  play: "Diversao",
-  investment: "Investimentos",
-  giving: "Doacoes",
-};
 
 export async function getFinancialAdvice(): Promise<FinancialTip[]> {
   const user = await requireAuth();
@@ -142,7 +134,7 @@ export async function getFinancialAdvice(): Promise<FinancialTip[]> {
     const spent = jarBalances[jarType] || 0;
     if (allocated > 0 && spent > allocated) {
       const overPercent = ((spent / allocated) * 100).toFixed(0);
-      const jarLabel = JAR_LABELS[jarType] || jarType;
+      const jarLabel = JAR_CONFIG[jarType as keyof typeof JAR_CONFIG]?.label || jarType;
       tips.push({
         id: `jar-over-${jarType}`,
         category: "spending",
