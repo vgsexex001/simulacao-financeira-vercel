@@ -11,7 +11,7 @@ async function getReportData(userId: string, month: number, year: number) {
   const monthStart = startOfMonth(new Date(year, month - 1));
   const monthEnd = endOfMonth(new Date(year, month - 1));
 
-  const [expenses, incomes] = await Promise.all([
+  const [expenses, incomes, settings] = await Promise.all([
     prisma.expense.findMany({
       where: {
         userId,
@@ -28,8 +28,10 @@ async function getReportData(userId: string, month: number, year: number) {
       include: { source: true },
       orderBy: { date: "asc" },
     }),
+    prisma.userSettings.findUnique({ where: { userId } }),
   ]);
 
+  const initialBalance = Number(settings?.initialBalance || 0);
   const totalIncome = incomes.reduce((s, i) => s + Number(i.amount), 0);
   const totalExpenses = expenses.reduce((s, e) => s + Number(e.amount), 0);
   const balance = totalIncome - totalExpenses;
@@ -42,6 +44,7 @@ async function getReportData(userId: string, month: number, year: number) {
     totalExpenses,
     balance,
     savingsRate,
+    initialBalance,
     expenses: expenses.map((e) => ({
       Data: e.date.toISOString().split("T")[0],
       Tipo: "Despesa",
@@ -132,9 +135,11 @@ export async function GET(request: NextRequest) {
 
       // Summary sheet
       const summaryData = [
+        { Metrica: "Saldo Inicial", Valor: data.initialBalance },
         { Metrica: "Receitas", Valor: data.totalIncome },
         { Metrica: "Despesas", Valor: data.totalExpenses },
-        { Metrica: "Saldo", Valor: data.balance },
+        { Metrica: "Balanço do Mês", Valor: data.balance },
+        { Metrica: "Saldo Geral", Valor: data.initialBalance + data.balance },
         {
           Metrica: "Taxa de Poupança (%)",
           Valor: parseFloat(data.savingsRate.toFixed(1)),
@@ -168,21 +173,23 @@ export async function GET(request: NextRequest) {
       doc.text("Resumo", 14, 42);
 
       doc.setFontSize(11);
-      doc.text(`Receitas: R$ ${data.totalIncome.toFixed(2)}`, 14, 52);
-      doc.text(`Despesas: R$ ${data.totalExpenses.toFixed(2)}`, 14, 60);
-      doc.text(`Saldo: R$ ${data.balance.toFixed(2)}`, 14, 68);
+      doc.text(`Saldo Inicial: R$ ${data.initialBalance.toFixed(2)}`, 14, 52);
+      doc.text(`Receitas: R$ ${data.totalIncome.toFixed(2)}`, 14, 60);
+      doc.text(`Despesas: R$ ${data.totalExpenses.toFixed(2)}`, 14, 68);
+      doc.text(`Balanço do Mês: R$ ${data.balance.toFixed(2)}`, 14, 76);
+      doc.text(`Saldo Geral: R$ ${(data.initialBalance + data.balance).toFixed(2)}`, 14, 84);
       doc.text(
         `Taxa de Poupança: ${data.savingsRate.toFixed(1)}%`,
         14,
-        76
+        92
       );
 
       // Transactions table
       doc.setFontSize(14);
-      doc.text("Transações", 14, 92);
+      doc.text("Transações", 14, 108);
 
       doc.setFontSize(9);
-      let y = 102;
+      let y = 118;
       const colX = [14, 40, 72, 130, 170];
       const headers = ["Data", "Tipo", "Descrição", "Cat./Fonte", "Valor"];
 
@@ -229,9 +236,11 @@ export async function GET(request: NextRequest) {
         {
           periodo: `${monthName} ${year}`,
           resumo: {
+            saldoInicial: data.initialBalance,
             receitas: data.totalIncome,
             despesas: data.totalExpenses,
-            saldo: data.balance,
+            balancoMes: data.balance,
+            saldoGeral: data.initialBalance + data.balance,
             taxaPoupanca: parseFloat(data.savingsRate.toFixed(1)),
           },
           receitas: data.incomes,

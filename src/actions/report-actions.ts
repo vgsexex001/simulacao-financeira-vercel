@@ -29,6 +29,7 @@ export async function getMonthlyReport(month: number, year: number) {
     prisma.userSettings.findUnique({ where: { userId: user.id } }),
   ]);
 
+  const initialBalance = Number(settings?.initialBalance || 0);
   const totalIncome = incomes.reduce((s, i) => s + Number(i.amount), 0);
   const totalExpenses = expenses.reduce((s, e) => s + Number(e.amount), 0);
   const balance = totalIncome - totalExpenses;
@@ -71,6 +72,7 @@ export async function getMonthlyReport(month: number, year: number) {
     totalExpenses,
     balance,
     savingsRate,
+    initialBalance,
     jarRules: (settings?.jarRulesJson || {}) as Record<string, number>,
     byCategory: Object.entries(byCategory)
       .map(([id, data]) => ({
@@ -112,7 +114,7 @@ export async function getAnnualReport(year: number) {
   const yearStart = new Date(year, 0, 1);
   const yearEnd = new Date(year, 11, 31, 23, 59, 59);
 
-  const [expenses, incomes, snapshots] = await Promise.all([
+  const [expenses, incomes, snapshots, settings] = await Promise.all([
     prisma.expense.findMany({
       where: {
         userId: user.id,
@@ -136,8 +138,10 @@ export async function getAnnualReport(year: number) {
       },
       orderBy: { month: "asc" },
     }),
+    prisma.userSettings.findUnique({ where: { userId: user.id } }),
   ]);
 
+  const initialBalance = Number(settings?.initialBalance || 0);
   const totalIncome = incomes.reduce((s, i) => s + Number(i.amount), 0);
   const totalExpenses = expenses.reduce((s, e) => s + Number(e.amount), 0);
   const balance = totalIncome - totalExpenses;
@@ -202,6 +206,7 @@ export async function getAnnualReport(year: number) {
     totalExpenses,
     balance,
     savingsRate,
+    initialBalance,
     monthlyData,
     byCategory: Object.entries(byCategory)
       .map(([id, data]) => ({

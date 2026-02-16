@@ -28,6 +28,8 @@ export async function getDashboardData() {
     goals,
     recentMonths,
     fixedTemplates,
+    allIncomeAgg,
+    allExpenseAgg,
   ] = await Promise.all([
     prisma.userSettings.findUnique({ where: { userId: user.id } }),
     prisma.expense.findMany({
@@ -65,8 +67,17 @@ export async function getDashboardData() {
     prisma.fixedExpenseTemplate.findMany({
       where: { userId: user.id, isActive: true },
     }),
+    prisma.income.aggregate({
+      where: { userId: user.id },
+      _sum: { amount: true },
+    }),
+    prisma.expense.aggregate({
+      where: { userId: user.id },
+      _sum: { amount: true },
+    }),
   ]);
 
+  const initialBalance = Number(settings?.initialBalance || 0);
   const totalIncome = monthIncomes.reduce(
     (sum, i) => sum + Number(i.amount),
     0
@@ -77,6 +88,11 @@ export async function getDashboardData() {
   );
   const balance = totalIncome - totalExpenses;
   const savingsRate = totalIncome > 0 ? (balance / totalIncome) * 100 : 0;
+
+  // Cumulative balance: initialBalance + all-time income - all-time expenses
+  const allTimeIncome = Number(allIncomeAgg._sum.amount || 0);
+  const allTimeExpenses = Number(allExpenseAgg._sum.amount || 0);
+  const cumulativeBalance = initialBalance + allTimeIncome - allTimeExpenses;
 
   // Jar balances
   const jarBalances: Record<string, number> = {};
@@ -116,7 +132,8 @@ export async function getDashboardData() {
     totalExpenses,
     balance,
     savingsRate,
-    initialBalance: Number(settings?.initialBalance || 0),
+    cumulativeBalance,
+    initialBalance,
     jarRules: (settings?.jarRulesJson || {}) as Record<string, number>,
     jarBalances,
     todayExpenses: todayExpenses.map((e) => ({

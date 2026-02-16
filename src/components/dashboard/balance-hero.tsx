@@ -2,7 +2,7 @@
 
 import { Card, CardContent } from "@/components/ui/card";
 import { formatBRL, formatPercent } from "@/lib/format";
-import { TrendingUp, TrendingDown, Wallet } from "lucide-react";
+import { TrendingUp, TrendingDown, Wallet, Landmark } from "lucide-react";
 import { motion } from "framer-motion";
 
 interface BalanceHeroProps {
@@ -10,6 +10,7 @@ interface BalanceHeroProps {
   totalExpenses: number;
   balance: number;
   savingsRate: number;
+  cumulativeBalance: number;
 }
 
 export function BalanceHero({
@@ -17,6 +18,7 @@ export function BalanceHero({
   totalExpenses,
   balance,
   savingsRate,
+  cumulativeBalance,
 }: BalanceHeroProps) {
   return (
     <motion.div
@@ -27,23 +29,23 @@ export function BalanceHero({
       <Card className="overflow-hidden">
         <CardContent className="p-6">
           <div className="mb-4 flex items-center gap-2 text-sm text-muted-foreground">
-            <Wallet className="h-4 w-4" />
-            Balanço do mês
+            <Landmark className="h-4 w-4" />
+            Saldo geral
           </div>
 
           <div
             className={`text-3xl font-bold font-mono ${
-              balance >= 0 ? "text-green-500" : "text-red-500"
+              cumulativeBalance >= 0 ? "text-green-500" : "text-red-500"
             }`}
           >
-            {formatBRL(balance)}
+            {formatBRL(cumulativeBalance)}
           </div>
 
-          <div className="mt-4 grid grid-cols-3 gap-4">
+          <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
             <div>
               <div className="flex items-center gap-1 text-xs text-muted-foreground">
                 <TrendingUp className="h-3 w-3 text-green-500" />
-                Receitas
+                Receitas do mês
               </div>
               <div className="mt-1 text-sm font-semibold font-mono text-green-500">
                 {formatBRL(totalIncome)}
@@ -52,10 +54,23 @@ export function BalanceHero({
             <div>
               <div className="flex items-center gap-1 text-xs text-muted-foreground">
                 <TrendingDown className="h-3 w-3 text-red-500" />
-                Despesas
+                Despesas do mês
               </div>
               <div className="mt-1 text-sm font-semibold font-mono text-red-500">
                 {formatBRL(totalExpenses)}
+              </div>
+            </div>
+            <div>
+              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                <Wallet className="h-3 w-3" />
+                Balanço do mês
+              </div>
+              <div
+                className={`mt-1 text-sm font-semibold font-mono ${
+                  balance >= 0 ? "text-green-500" : "text-red-500"
+                }`}
+              >
+                {formatBRL(balance)}
               </div>
             </div>
             <div>

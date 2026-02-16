@@ -119,7 +119,7 @@ export async function getAnnualAnalytics(year: number) {
   const yearStart = startOfYear(new Date(year, 0));
   const yearEnd = endOfYear(new Date(year, 11));
 
-  const [expenses, incomes, snapshots] = await Promise.all([
+  const [expenses, incomes, snapshots, settings] = await Promise.all([
     prisma.expense.findMany({
       where: {
         userId: user.id,
@@ -137,6 +137,7 @@ export async function getAnnualAnalytics(year: number) {
       where: { userId: user.id, year },
       orderBy: [{ month: "asc" }],
     }),
+    prisma.userSettings.findUnique({ where: { userId: user.id } }),
   ]);
 
   // Build month-by-month data (1-12)
@@ -195,6 +196,7 @@ export async function getAnnualAnalytics(year: number) {
       a.months.reduce((s, v) => s + v, 0)
   );
 
+  const initialBalance = Number(settings?.initialBalance || 0);
   const totalIncome = monthlyData.reduce((s, m) => s + m.income, 0);
   const totalExpenses = monthlyData.reduce((s, m) => s + m.expenses, 0);
 
@@ -204,6 +206,7 @@ export async function getAnnualAnalytics(year: number) {
     totalIncome,
     totalExpenses,
     annualBalance: totalIncome - totalExpenses,
+    initialBalance,
   };
 }
 

@@ -19,6 +19,7 @@ import {
   TrendingDown,
   Wallet,
   PiggyBank,
+  Landmark,
 } from "lucide-react";
 import { getMonthlyReport } from "@/actions/report-actions";
 import { toast } from "sonner";
@@ -39,6 +40,7 @@ interface ReportData {
   totalExpenses: number;
   balance: number;
   savingsRate: number;
+  initialBalance: number;
   byCategory: CategoryRow[];
   byJar: Array<{ jar: string; total: number; count: number }>;
   expenses: Array<{
@@ -177,7 +179,7 @@ export function ReportViewer({ initialReport }: ReportViewerProps) {
       </Card>
 
       {/* Summary cards */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-1.5">
@@ -210,7 +212,7 @@ export function ReportViewer({ initialReport }: ReportViewerProps) {
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-1.5">
               <Wallet className="h-4 w-4" />
-              Saldo
+              Balanço do mês
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -220,6 +222,24 @@ export function ReportViewer({ initialReport }: ReportViewerProps) {
               }`}
             >
               {formatBRL(report.balance)}
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-1.5">
+              <Landmark className="h-4 w-4" />
+              Saldo geral
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p
+              className={`text-2xl font-bold ${
+                report.initialBalance + report.balance >= 0 ? "text-green-500" : "text-red-500"
+              }`}
+            >
+              {formatBRL(report.initialBalance + report.balance)}
             </p>
           </CardContent>
         </Card>

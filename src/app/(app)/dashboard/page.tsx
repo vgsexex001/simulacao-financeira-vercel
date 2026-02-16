@@ -27,6 +27,7 @@ export default async function DashboardPage() {
         totalExpenses={data.totalExpenses}
         balance={data.balance}
         savingsRate={data.savingsRate}
+        cumulativeBalance={data.cumulativeBalance}
       />
 
       <QuickActions />

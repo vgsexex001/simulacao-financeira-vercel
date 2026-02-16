@@ -47,6 +47,7 @@ interface AnnualData {
   totalIncome: number;
   totalExpenses: number;
   annualBalance: number;
+  initialBalance: number;
 }
 
 interface AnnualAnalyticsProps {
@@ -82,7 +83,7 @@ export function AnnualAnalytics({ data, year }: AnnualAnalyticsProps) {
   return (
     <div className="space-y-6">
       {/* Summary Cards */}
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardContent className="pt-4">
             <p className="text-sm text-muted-foreground">Receita anual</p>
@@ -101,13 +102,25 @@ export function AnnualAnalytics({ data, year }: AnnualAnalyticsProps) {
         </Card>
         <Card>
           <CardContent className="pt-4">
-            <p className="text-sm text-muted-foreground">Saldo anual</p>
+            <p className="text-sm text-muted-foreground">Balanço anual</p>
             <p
               className={`text-2xl font-bold ${
                 data.annualBalance >= 0 ? "text-blue-500" : "text-red-500"
               }`}
             >
               {formatBRL(data.annualBalance)}
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-4">
+            <p className="text-sm text-muted-foreground">Saldo geral</p>
+            <p
+              className={`text-2xl font-bold ${
+                data.initialBalance + data.annualBalance >= 0 ? "text-green-500" : "text-red-500"
+              }`}
+            >
+              {formatBRL(data.initialBalance + data.annualBalance)}
             </p>
           </CardContent>
         </Card>
