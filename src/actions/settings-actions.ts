@@ -135,18 +135,21 @@ export async function updatePreferences(data: {
   try {
     const user = await requireAuth();
 
-    await prisma.userSettings.update({
+    const updateData = {
+      ...(data.locale !== undefined && { locale: data.locale }),
+      ...(data.monthStartDay !== undefined && {
+        monthStartDay: data.monthStartDay,
+      }),
+      ...(data.currency !== undefined && { currency: data.currency }),
+      ...(data.initialBalance !== undefined && {
+        initialBalance: data.initialBalance,
+      }),
+    };
+
+    await prisma.userSettings.upsert({
       where: { userId: user.id },
-      data: {
-        ...(data.locale !== undefined && { locale: data.locale }),
-        ...(data.monthStartDay !== undefined && {
-          monthStartDay: data.monthStartDay,
-        }),
-        ...(data.currency !== undefined && { currency: data.currency }),
-        ...(data.initialBalance !== undefined && {
-          initialBalance: data.initialBalance,
-        }),
-      },
+      update: updateData,
+      create: { userId: user.id, ...updateData },
     });
 
     revalidatePath("/settings");

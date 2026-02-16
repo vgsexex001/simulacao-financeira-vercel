@@ -17,6 +17,7 @@ import { updatePreferences } from "@/actions/settings-actions";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { Loader2, Palette, Calendar, Wallet } from "lucide-react";
+import { parseBRLInput } from "@/lib/format";
 
 interface PreferencesFormProps {
   settings: {
@@ -67,11 +68,12 @@ export function PreferencesForm({ settings }: PreferencesFormProps) {
   async function handleBalanceSubmit(e: React.FormEvent) {
     e.preventDefault();
 
-    const parsed = parseFloat(initialBalance.replace(",", "."));
-    if (isNaN(parsed)) {
-      toast.error("Valor inválido. Use apenas números.");
+    const trimmed = initialBalance.trim();
+    if (!trimmed) {
+      toast.error("Informe um valor.");
       return;
     }
+    const parsed = parseBRLInput(trimmed);
 
     setBalanceLoading(true);
     try {
